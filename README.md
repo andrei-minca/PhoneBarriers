@@ -6,3 +6,7 @@ Requirements:
 - twilio account with a pay-as-you-go plan + the minimum account deposit
 - verified phone number through twilio (the one that is qualified to make the calls (FROM))
 - twilio function (example provided here) that will act as a serverless endpoint to be called by the app (API calls seem to be free for now!)
+
+Includes:
+- a direct call widget
+- a monitoring service for tracking OR recognizing the trigger-motion context
