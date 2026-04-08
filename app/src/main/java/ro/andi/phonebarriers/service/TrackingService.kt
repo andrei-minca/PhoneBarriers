@@ -63,11 +63,17 @@ class TrackingService : Service(), SensorEventListener {
 
         // Handle the button actions
         when (intent?.action) {
-            "ACTION_STOP" -> {
+            "ACTION_PAUSE" -> {
                 isSampling = false
             }
             "ACTION_START" -> {
                 isSampling = true
+            }
+            "ACTION_CLOSE" -> {
+                // remove notification and stop service
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return START_NOT_STICKY // Do not restart if user explicitly exited
             }
         }
 
@@ -84,6 +90,7 @@ class TrackingService : Service(), SensorEventListener {
         fusedLocationClient.removeLocationUpdates(locationCallback)
         sensorManager.unregisterListener(this)
         serviceScope.cancel() // Stop the sampling loop
+        Log.d("TrackingService", "Service Destroyed and Sampling Stopped")
     }
 
     private fun startMyForegroundService() {
@@ -116,9 +123,13 @@ class TrackingService : Service(), SensorEventListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Stop Button Intent
-        val stopIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_STOP" }
-        val pPause = PendingIntent.getBroadcast(this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        // exit button
+        val exitIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_CLOSE" }
+        val pClose = PendingIntent.getBroadcast(this, 4, exitIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        // pause Button Intent
+        val pauseIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_PAUSE" }
+        val pPause = PendingIntent.getBroadcast(this, 1, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
 
         // Start Button Intent
         val startIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_START" }
@@ -145,7 +156,9 @@ class TrackingService : Service(), SensorEventListener {
             .setOngoing(true) // Makes the notification non-dismissible
             .setSilent(true)
             .setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_menu_call, "Lift "+VALUE_BARRIER_NAME.take(9), pLift)
+
+        // add the close button
+        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Close", pClose)
 
         // Dynamically add the correct button
         if (isSampling) {
@@ -153,6 +166,9 @@ class TrackingService : Service(), SensorEventListener {
         } else {
             builder.addAction(android.R.drawable.ic_media_play, "Start", pStart)
         }
+
+        // lift button
+        builder.addAction(android.R.drawable.ic_menu_call, "Lift "+VALUE_BARRIER_NAME.take(9), pLift)
 
         return builder.build()
     }

@@ -53,15 +53,14 @@ class MainActivity : ComponentActivity() {
     private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_NAME // or dynamic update if multiple barriers
 
     private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+        ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val notificationsGranted =
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
         } else true
-
 
         if (fineLocationGranted || coarseLocationGranted
             || notificationsGranted) {
@@ -75,6 +74,8 @@ class MainActivity : ComponentActivity() {
     }
     // Inside MainActivity class
     private var isLoading by mutableStateOf(false)
+
+    private var isServiceActive by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -130,6 +131,20 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text("Share Trigger Motion Data (CSV)")
                         }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { toggleTrackingService() },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isServiceActive) Color(0xFFFF8C00) else Color.Green //Color(0xFF4CAF50) //FF8C00
+                            )
+                        ) {
+                            Text(if (isServiceActive) "Stop Monitoring Service" else "Start Monitoring Service")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
 
@@ -140,6 +155,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent) // Important to update the intent
         handleIntent(intent)
+    }
+    // Update this state whenever the activity is visible
+    override fun onResume() {
+        super.onResume()
+        isServiceActive = isServiceRunning(TrackingService::class.java)
     }
 
     private fun checkAndStartPermissions() {
@@ -223,6 +243,7 @@ class MainActivity : ComponentActivity() {
         // Start the Tracking Service
         val serviceIntent = Intent(this, TrackingService::class.java)
         startForegroundService(serviceIntent)
+        isServiceActive = true
     }
 
     fun shareSessionCsv(context: Context) {
@@ -260,6 +281,29 @@ class MainActivity : ComponentActivity() {
 
             // 2. Optional: Cleanup very old null data to keep the DB small
             dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
+        }
+    }
+
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+    private fun toggleTrackingService() {
+        val serviceIntent = Intent(this, TrackingService::class.java)
+        if (isServiceActive) {
+            stopService(serviceIntent)
+            isServiceActive = false
+            Toast.makeText(this, "Monitoring Stopped", Toast.LENGTH_SHORT).show()
+        } else {
+            // Ensure we have permissions before starting
+            checkAndStartPermissions()
+            // Note: checkAndStartPermissions calls startTrackingService()
+            // which sets isServiceActive = true
         }
     }
 }
