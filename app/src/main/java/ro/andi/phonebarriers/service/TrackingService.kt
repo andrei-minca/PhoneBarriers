@@ -27,7 +27,15 @@ class TrackingService : Service(), SensorEventListener {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var countSavedPointsSinceRefresh = 0
 
-    private var isSampling = true // Control flag
+    enum class ETypeSampling {
+        Active,
+        Paused,
+        AutoSleep,Sleep,
+        DelayedSleep // awake and delay the sleep state for X minutes
+    }
+    private var samplingState = ETypeSampling.Active // Control flag
+    private var timestampDelayedSleep = 0L // Timestamp for delayed sleep
+    private var delaySleepAmountMillis = 600000L // 10 minutes // 20000L // 20 seconds //
     private var currentMaxAccel = 0f
     private var lastLocation: android.location.Location? = null
     private val locationCallback = object : LocationCallback() {
@@ -55,6 +63,7 @@ class TrackingService : Service(), SensorEventListener {
         sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
         startLocationUpdates()
         startSamplingLoop()
     }
@@ -64,10 +73,17 @@ class TrackingService : Service(), SensorEventListener {
         // Handle the button actions
         when (intent?.action) {
             "ACTION_PAUSE" -> {
-                isSampling = false
+                samplingState = ETypeSampling.Paused
             }
             "ACTION_START" -> {
-                isSampling = true
+                samplingState = ETypeSampling.Active
+            }
+            "ACTION_SLEEP" -> {
+                samplingState = ETypeSampling.Sleep
+            }
+            "ACTION_DELAY_SLEEP" -> {
+                samplingState = ETypeSampling.DelayedSleep
+                timestampDelayedSleep = System.currentTimeMillis()
             }
             "ACTION_CLOSE" -> {
                 // remove notification and stop service
@@ -83,6 +99,9 @@ class TrackingService : Service(), SensorEventListener {
 
         // ... your logic ...
 
+        // ADJUST HARDWARE BASED ON TIME/STATE
+        adjustHardwareForPower()
+
         return START_STICKY
     }
     override fun onDestroy() {
@@ -97,7 +116,7 @@ class TrackingService : Service(), SensorEventListener {
 
         // 1.a create Notification Channel (Required for API 26+)
         createNotificationChannel()
-        // 2.b create Notification
+        // 1.b create Notification
         val notification = createNotification()
 
         // 2. start as Foreground Service
@@ -123,9 +142,11 @@ class TrackingService : Service(), SensorEventListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // exit button
-        val exitIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_CLOSE" }
-        val pClose = PendingIntent.getBroadcast(this, 4, exitIntent, PendingIntent.FLAG_IMMUTABLE)
+        //region {buttons with intents}
+
+        // close button
+        val closeIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_CLOSE" }
+        val pClose = PendingIntent.getBroadcast(this, 5, closeIntent, PendingIntent.FLAG_IMMUTABLE)
 
         // pause Button Intent
         val pauseIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_PAUSE" }
@@ -134,6 +155,14 @@ class TrackingService : Service(), SensorEventListener {
         // Start Button Intent
         val startIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_START" }
         val pStart = PendingIntent.getBroadcast(this, 2, startIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        // delay sleep Button Intent
+        val sleepIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_SLEEP" }
+        val pSleep = PendingIntent.getBroadcast(this, 3, sleepIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        // delay sleep Button Intent
+        val delaySleepIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_DELAY_SLEEP" }
+        val pDelaySleep = PendingIntent.getBroadcast(this, 4, delaySleepIntent, PendingIntent.FLAG_IMMUTABLE)
 
         // Intent to open MainActivity and trigger the lift
         val liftIntent = Intent(this, MainActivity::class.java).apply {
@@ -147,9 +176,17 @@ class TrackingService : Service(), SensorEventListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        //endregion
+
         val builder = androidx.core.app.NotificationCompat.Builder(this, "tracking_channel")
             .setContentTitle("Phone Barriers")
-            .setContentText(if (isSampling) "Monitoring patterns at 1Hz" else "Monitoring of patterns is PAUSED")
+            .setContentText(when (samplingState) {
+                ETypeSampling.Active -> "Monitoring patterns at 1Hz (ACTIVE)"
+                ETypeSampling.Paused -> "No monitoring of patterns (PAUSED)"
+                ETypeSampling.AutoSleep -> "No monitoring of patterns (AUTO-SLEEP)"
+                ETypeSampling.Sleep -> "No monitoring of patterns (SLEEP)"
+                ETypeSampling.DelayedSleep -> "Temporary monitoring of patterns at 1Hz (DELAYED-SLEEP)"
+            })
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
             .setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
@@ -161,10 +198,12 @@ class TrackingService : Service(), SensorEventListener {
         builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Close", pClose)
 
         // Dynamically add the correct button
-        if (isSampling) {
-            builder.addAction(android.R.drawable.ic_media_pause, "Pause", pPause)
-        } else {
-            builder.addAction(android.R.drawable.ic_media_play, "Start", pStart)
+        when (samplingState) {
+            ETypeSampling.Active -> builder.addAction(android.R.drawable.ic_media_pause, "Pause", pPause)
+            ETypeSampling.Paused -> builder.addAction(android.R.drawable.ic_media_play, "Start", pStart)
+            ETypeSampling.AutoSleep -> builder.addAction(android.R.drawable.ic_media_play, "Delay sleep", pDelaySleep)
+            ETypeSampling.Sleep -> builder.addAction(android.R.drawable.ic_media_play, "Delay sleep", pDelaySleep)
+            ETypeSampling.DelayedSleep -> builder.addAction(android.R.drawable.ic_media_pause, "Sleep", pSleep)
         }
 
         // lift button
@@ -172,12 +211,124 @@ class TrackingService : Service(), SensorEventListener {
 
         return builder.build()
     }
+
+    private fun nextSamplingState(currentState: ETypeSampling): ETypeSampling {
+
+        val retCode = when (currentState) {
+            ETypeSampling.Active -> {
+
+                if (isAutoSleepTime()) {
+                    ETypeSampling.AutoSleep
+                } else {
+                    ETypeSampling.Active
+                }
+            }
+
+            ETypeSampling.Paused -> ETypeSampling.Paused
+
+            ETypeSampling.AutoSleep -> {
+
+                if (isAutoSleepTime()) {
+                    ETypeSampling.AutoSleep
+                } else {
+                    ETypeSampling.Active
+                }
+            }
+
+            ETypeSampling.Sleep -> {
+
+                if (isAutoSleepTime()) {
+                    ETypeSampling.Sleep
+                } else {
+                    ETypeSampling.Active
+                }
+            }
+
+            ETypeSampling.DelayedSleep -> {
+
+                if (timestampDelayedSleep==0L) timestampDelayedSleep = System.currentTimeMillis()
+                if (System.currentTimeMillis() - timestampDelayedSleep > delaySleepAmountMillis) {
+                    timestampDelayedSleep = 0L
+                    ETypeSampling.AutoSleep
+                } else {
+                    ETypeSampling.DelayedSleep
+                }
+            }
+        }
+
+        return retCode
+    }
+    private fun isAutoSleepTime(): Boolean {
+        val hourNow = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        Log.d("TrackingService", "hourNow: $hourNow")
+        val activeHours = 9..17 //listOf(8,9,12,13,15,16)//
+        return hourNow !in activeHours
+    }
+    private var isCurrentlyThrottled: Boolean? = null // Tracks if we are in power-save mode
+    private fun adjustHardwareForPower() {
+
+        val checkShouldThrottle: ((ETypeSampling)-> Boolean) = { samplingState ->
+
+            when (samplingState) {
+                ETypeSampling.Active -> false
+                ETypeSampling.Paused -> true
+                ETypeSampling.AutoSleep -> true
+                ETypeSampling.Sleep -> true
+                ETypeSampling.DelayedSleep -> false
+            }
+        }
+
+        val shouldThrottle = checkShouldThrottle(samplingState)
+
+        // Optimization: Only run the logic if the state actually changed
+        if (isCurrentlyThrottled == shouldThrottle) return
+        isCurrentlyThrottled = shouldThrottle
+
+        // REFRESH NOTIFICATION: Update the text to reflect Pause or Night Mode
+        startMyForegroundService()
+
+        if (shouldThrottle) {
+            // PAUSE OR SLEEP MODE: Stop sensors and slow down GPS to "Passive"
+            sensorManager.unregisterListener(this)
+
+            val passiveRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 300000L) // 5 minutes
+                .build()
+            try {
+                fusedLocationClient.requestLocationUpdates(passiveRequest, locationCallback, mainLooper)
+            } catch (e: SecurityException) { }
+
+            Log.d("TrackingService", "Battery Saver: Hardware throttled")
+        } else {
+            // ONLINE MODE: Resume high accuracy
+            val accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+            sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL) // NORMAL is better than GAME for battery
+
+            startLocationUpdates() // Resumes 1s GPS
+        }
+    }
     private fun startSamplingLoop() {
+
+        val checkIsSampling: (ETypeSampling) -> Boolean = { samplingState ->
+            when (samplingState) {
+                ETypeSampling.Active -> true
+                ETypeSampling.Paused -> false
+                ETypeSampling.AutoSleep -> false
+                ETypeSampling.Sleep -> false
+                ETypeSampling.DelayedSleep -> true
+            }
+        }
 
         serviceScope.launch {
             while (isActive) {
 
-                if (isSampling) {
+                Log.d("TrackingService", "samplingState: $samplingState")
+                samplingState = nextSamplingState(samplingState)
+                Log.d("TrackingService", "next-samplingState: $samplingState")
+
+                // Check if we need to change hardware state (Day/Night or Pause/Start)
+                adjustHardwareForPower()
+
+                if (checkIsSampling(samplingState)) {
 
                     savePointToDb(sessionId = null) // Null means "temporary buffer"
 
@@ -191,9 +342,14 @@ class TrackingService : Service(), SensorEventListener {
 
                         countSavedPointsSinceRefresh = 0
                     }
-                }
 
-                delay(1000) // 1Hz frequency
+                    delay(1000) // 1Hz frequency
+                }
+                else {
+                    // if it's  paused, sleep for a longer interval (e.g., 10 seconds)
+                    // before checking the time/status again to save CPU cycles.
+                    delay(10000)
+                }
             }
         }
     }

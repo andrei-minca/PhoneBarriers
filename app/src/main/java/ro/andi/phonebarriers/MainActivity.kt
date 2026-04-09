@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
                                 containerColor = if (isServiceActive) Color(0xFFFF8C00) else Color.Green //Color(0xFF4CAF50) //FF8C00
                             )
                         ) {
-                            Text(if (isServiceActive) "Stop Monitoring Service" else "Start Monitoring Service")
+                            Text(if (isServiceActive) "Close Monitoring Service" else "Start Monitoring Service")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
