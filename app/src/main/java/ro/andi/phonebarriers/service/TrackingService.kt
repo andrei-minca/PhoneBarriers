@@ -18,6 +18,7 @@ import ro.andi.phonebarriers.MainActivity
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.MotionPoint
 import ro.andi.phonebarriers.R
+import ro.andi.phonebarriers.data.AppPreferences
 
 class TrackingService : Service(), SensorEventListener {
 
@@ -261,7 +262,8 @@ class TrackingService : Service(), SensorEventListener {
     private fun isAutoSleepTime(): Boolean {
         val hourNow = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
         Log.d("TrackingService", "hourNow: $hourNow")
-        val activeHours = 9..17 //listOf(8,9,12,13,15,16)//
+        val activeHours = AppPreferences(this).getActiveHours()
+        Log.d("TrackingService", "activeHours: $activeHours")
         return hourNow !in activeHours
     }
     private var isCurrentlyThrottled: Boolean? = null // Tracks if we are in power-save mode

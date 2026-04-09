@@ -44,6 +44,9 @@ android {
         // test barrier name
         buildConfigField("String", "TEST_BARRIER_NAME",
             properties.getProperty("TEST_BARRIER_NAME") ?: "\"BARRIER\"")
+        // default active hours list
+        buildConfigField("String", "DEFAULT_ACTIVE_HOURS_LIST",
+            properties.getProperty("DEFAULT_ACTIVE_HOURS_LIST") ?: "\"8,9,10,11,12,13,14,15,16,17\"")
     }
 
     buildTypes {
@@ -115,6 +118,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
+
+    // Gson library for JSON serialization/deserialization in AppPreferences
+    implementation("com.google.code.gson:gson:2.13.2") // Or the latest stable version
 
 
 }

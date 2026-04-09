@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
     // Update this state whenever the activity is visible
     override fun onResume() {
         super.onResume()
-        isServiceActive = isServiceRunning(TrackingService::class.java)
+        isServiceActive = Utils.isServiceRunning(this,TrackingService::class.java)
     }
 
     private fun checkAndStartPermissions() {
@@ -284,15 +284,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
-        val manager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
-            if (serviceClass.name == service.service.className) {
-                return true
-            }
-        }
-        return false
-    }
     private fun toggleTrackingService() {
         val serviceIntent = Intent(this, TrackingService::class.java)
         if (isServiceActive) {
