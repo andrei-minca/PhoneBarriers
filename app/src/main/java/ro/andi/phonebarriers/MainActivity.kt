@@ -249,9 +249,9 @@ class MainActivity : ComponentActivity() {
     fun shareSessionCsv(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             val data = AppDatabase.getDatabase(context).motionDao().getData()
-            val csvHeader = "Time,SessionId,Accuracy,Lat,Lng,Alt,Speed(m/s),Accel(m/s2)\n"
+            val csvHeader = "SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel\n"
             val csvRows = data.joinToString("\n") {
-                "${it.timestamp},${it.sessionId},${it.accuracy},${it.lat},${it.lng},${it.alt},${it.speed},${it.acceleration}"
+                "${it.sessionId},${it.timestamp},${it.accuracy},${it.lat},${it.lng},${it.alt},${it.speed},${it.acceleration}"
             }
 
             val file = File(context.cacheDir, "motion_data_${System.currentTimeMillis()}.csv")
