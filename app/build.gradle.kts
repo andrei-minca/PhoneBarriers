@@ -4,10 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 
-    // Add this line (version should match your Kotlin version: 2.0.21)
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.10"
-
-    id("com.google.devtools.ksp") version "2.3.2" // Match Kotlin 2.0.21
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 
 }
 
@@ -113,14 +111,12 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    val room_version = "2.6.1"
-
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Gson library for JSON serialization/deserialization in AppPreferences
-    implementation("com.google.code.gson:gson:2.13.2") // Or the latest stable version
+    implementation("com.google.code.gson:gson:2.14.0") // Or the latest stable version
 
 
 }

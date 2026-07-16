@@ -8,9 +8,9 @@ espressoCore = "3.7.0"
 appcompat = "1.7.1"
 material = "1.13.0"
 
-room = "2.6.1"
-ksp = "2.0.21-1.0.27"
-playServicesLocation = "21.3.0" # Must match your Kotlin version
+room = "2.7.1"
+ksp = "2.2.10-2.0.2"
+playServicesLocation = "21.3.0"
 
 
 [libraries]
