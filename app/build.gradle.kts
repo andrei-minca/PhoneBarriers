@@ -5,9 +5,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
 
     // Add this line (version should match your Kotlin version: 2.0.21)
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.10"
 
-    id("com.google.devtools.ksp") version "2.0.21-1.0.27" // Match Kotlin 2.0.21
+    id("com.google.devtools.ksp") version "2.3.2" // Match Kotlin 2.0.21
 
 }
 
