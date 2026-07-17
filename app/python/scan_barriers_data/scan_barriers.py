@@ -627,6 +627,13 @@ def pipeline_step0():
     # print(M2_normalized_runs)
     # print(M1_barrier_positions)
 
+    #   also store the min max values of the relative runs used for normalization to be able to normalize the online data in the same way
+    #       except the SessionId column
+    min_vals = np.vstack(relative_runs).min(axis=0)
+    max_vals = np.vstack(relative_runs).max(axis=0)
+    # print(f"min_vals: {min_vals}")
+    # print(f"max_vals: {max_vals}")
+
     pass
 
 
