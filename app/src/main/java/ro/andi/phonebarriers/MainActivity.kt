@@ -80,6 +80,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Show message from C++
+        Toast.makeText(this, stringFromJNI(), Toast.LENGTH_SHORT).show()
+
         // trigger permission request
         checkAndStartPermissions()
 
@@ -295,6 +298,19 @@ class MainActivity : ComponentActivity() {
             checkAndStartPermissions()
             // Note: checkAndStartPermissions calls startTrackingService()
             // which sets isServiceActive = true
+        }
+    }
+
+    /**
+     * A native method that is implemented by the 'native-lib' native library,
+     * which is packaged with this application.
+     */
+    external fun stringFromJNI(): String
+
+    companion object {
+        // Used to load the 'native-lib' library on application startup.
+        init {
+            System.loadLibrary("native-lib")
         }
     }
 }
