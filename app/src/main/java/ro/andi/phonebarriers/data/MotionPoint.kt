@@ -12,5 +12,6 @@ data class MotionPoint(
     val lng: Double,
     val alt: Double,
     val speed: Float,
-    val acceleration: Float
+    val acceleration: Float,
+    val barrierId: Int? = null // Associated barrier when triggered
 )

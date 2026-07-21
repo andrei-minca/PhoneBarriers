@@ -66,7 +66,7 @@ class CallWidget : AppWidgetProvider() {
 
                         // Tag points from the last 30.9 seconds that don't have a sessionId yet
                         val threshold = System.currentTimeMillis() - 30900
-                        dao.tagRecentPoints(sessionId, threshold)
+                        dao.tagRecentPoints(sessionId, 0, threshold)
 
                         // Optional: Clean up very old data (> 1 minute)
                         dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)

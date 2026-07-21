@@ -252,9 +252,12 @@ class MainActivity : ComponentActivity() {
     fun shareSessionCsv(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             val data = AppDatabase.getDatabase(context).motionDao().getData()
-            val csvHeader = "SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel\n"
+            val csvHeader = "BarrierId,SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel\n"
             val csvRows = data.joinToString("\n") {
-                "${it.sessionId},${it.timestamp},${it.accuracy},${it.lat},${it.lng},${it.alt},${it.speed},${it.acceleration}"
+                "${it.barrierId},${it.sessionId}," +
+                        "${it.timestamp}," +
+                        "${it.accuracy},${it.lat},${it.lng},${it.alt}," +
+                        "${it.speed},${it.acceleration}"
             }
 
             val file = File(context.cacheDir, "motion_data_${System.currentTimeMillis()}.csv")
@@ -280,7 +283,7 @@ class MainActivity : ComponentActivity() {
             // We look for points with null sessionIds from the last 30900ms
             val threshold = System.currentTimeMillis() - 30900
 
-            dao.tagRecentPoints(sessionId, threshold)
+            dao.tagRecentPoints(sessionId, 0, threshold)
 
             // 2. Optional: Cleanup very old null data to keep the DB small
             dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
