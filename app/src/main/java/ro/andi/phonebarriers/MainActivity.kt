@@ -29,6 +29,9 @@ import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.service.TrackingService
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -260,7 +263,9 @@ class MainActivity : ComponentActivity() {
                         "${it.speed},${it.acceleration}"
             }
 
-            val file = File(context.cacheDir, "motion_data_${System.currentTimeMillis()}.csv")
+            val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val dateStr = sdf.format(Date())
+            val file = File(context.cacheDir, "motion_data_${dateStr}_${System.currentTimeMillis()}.csv")
             file.writeText(csvHeader + csvRows)
 
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
