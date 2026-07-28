@@ -125,5 +125,6 @@ dependencies {
     // Gson library for JSON serialization/deserialization in AppPreferences
     implementation("com.google.code.gson:gson:2.14.0") // Or the latest stable version
 
+    implementation(libs.androidx.work.runtime.ktx)
 
 }

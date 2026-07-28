@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.service.TrackingService
 import java.io.File
@@ -83,8 +84,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Show message from C++
-        Toast.makeText(this, stringFromJNI(), Toast.LENGTH_SHORT).show()
+        // Show message from C++ without blocking UI thread
+        lifecycleScope.launch(Dispatchers.Default) {
+            val message = NativeLib.stringFromJNI()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
+        }
 
         // trigger permission request
         checkAndStartPermissions()
@@ -306,19 +312,6 @@ class MainActivity : ComponentActivity() {
             checkAndStartPermissions()
             // Note: checkAndStartPermissions calls startTrackingService()
             // which sets isServiceActive = true
-        }
-    }
-
-    /**
-     * A native method that is implemented by the 'native-lib' native library,
-     * which is packaged with this application.
-     */
-    external fun stringFromJNI(): String
-
-    companion object {
-        // Used to load the 'native-lib' library on application startup.
-        init {
-            System.loadLibrary("native-lib")
         }
     }
 }

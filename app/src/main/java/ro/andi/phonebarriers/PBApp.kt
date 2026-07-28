@@ -2,7 +2,11 @@ package ro.andi.phonebarriers
 
 import android.app.Application
 import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import ro.andi.phonebarriers.data.AppPreferences
+import java.util.concurrent.TimeUnit
 
 class PBApp : Application() {
 
@@ -21,5 +25,19 @@ class PBApp : Application() {
 
             AppPreferences(this).setActiveHours(defaultList)
         }
+
+        scheduleRecurrentTask()
+    }
+
+    private fun scheduleRecurrentTask() {
+        val recurrentWorkRequest = PeriodicWorkRequestBuilder<RecurrentNativeWorker>(
+            7, TimeUnit.DAYS
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "RecurrentNativeTask",
+            ExistingPeriodicWorkPolicy.KEEP,
+            recurrentWorkRequest
+        )
     }
 }
