@@ -27,11 +27,35 @@ class PBApp : Application() {
         }
 
         scheduleRecurrentTask()
+        createNotificationChannels()
+    }
+
+    private fun createNotificationChannels() {
+        val manager = getSystemService(android.app.NotificationManager::class.java)
+
+        // Existing tracking channel (if not already handled in service, but good to ensure here)
+        val trackingChannel = android.app.NotificationChannel(
+            "tracking_channel",
+            "Tracking Service Channel",
+            android.app.NotificationManager.IMPORTANCE_LOW
+        )
+        manager.createNotificationChannel(trackingChannel)
+
+        // New Classification channel
+        val classificationChannel = android.app.NotificationChannel(
+            "classification_results_channel",
+            "Classification Results",
+            android.app.NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notifications for barrier classification results"
+        }
+        manager.createNotificationChannel(classificationChannel)
     }
 
     private fun scheduleRecurrentTask() {
         val recurrentWorkRequest = PeriodicWorkRequestBuilder<RecurrentNativeWorker>(
-            7, TimeUnit.DAYS
+//            7, TimeUnit.DAYS
+            7, TimeUnit.MINUTES // the minimum is 15 minutes
         ).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
