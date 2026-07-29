@@ -59,7 +59,7 @@ class RecurrentNativeWorker(
 
         val builder = NotificationCompat.Builder(applicationContext, "classification_results_channel")
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
-            .setContentTitle("Barrier Processed: $barrierName")
+            .setContentTitle("Barrier Processed: $barrierName [$barrierId]")
             .setContentText(result)
             .setStyle(NotificationCompat.BigTextStyle().bigText(result))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
