@@ -36,6 +36,8 @@ import java.util.Locale
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFD0BCFF),secondary = Color(0xFFCCC2DC),
@@ -154,6 +156,16 @@ class MainActivity : ComponentActivity() {
                             )
                         ) {
                             Text(if (isServiceActive) "Close Monitoring Service" else "Start Monitoring Service")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { triggerRecurrentWorker() },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                        ) {
+                            Text("Trigger Clustering Now")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -313,5 +325,11 @@ class MainActivity : ComponentActivity() {
             // Note: checkAndStartPermissions calls startTrackingService()
             // which sets isServiceActive = true
         }
+    }
+
+    private fun triggerRecurrentWorker() {
+        val workRequest = OneTimeWorkRequestBuilder<RecurrentNativeWorker>().build()
+        WorkManager.getInstance(this).enqueue(workRequest)
+        Toast.makeText(this, "Analysis Task Enqueued", Toast.LENGTH_SHORT).show()
     }
 }

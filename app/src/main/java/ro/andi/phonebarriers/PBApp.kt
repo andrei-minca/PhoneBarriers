@@ -54,13 +54,13 @@ class PBApp : Application() {
 
     private fun scheduleRecurrentTask() {
         val recurrentWorkRequest = PeriodicWorkRequestBuilder<RecurrentNativeWorker>(
-//            7, TimeUnit.DAYS
-            7, TimeUnit.MINUTES // the minimum is 15 minutes
+            3, TimeUnit.DAYS
+//            3, TimeUnit.HOURS // the minimum is 15 minutes
         ).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "RecurrentNativeTask",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE, // ExistingPeriodicWorkPolicy.KEEP,
             recurrentWorkRequest
         )
     }
