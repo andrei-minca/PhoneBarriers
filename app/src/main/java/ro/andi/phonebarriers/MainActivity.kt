@@ -165,7 +165,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                         ) {
-                            Text("Trigger Clustering Now")
+                            Text("[Classify & Find Medoids]")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
