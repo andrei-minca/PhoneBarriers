@@ -10,6 +10,8 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -109,6 +111,12 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = colorScheme) {
                 //var isLoading by remember { mutableStateOf(false) }
 
+                val csvPickerLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri: Uri? ->
+                    uri?.let { loadMotionDataFromCsv(it) }
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -134,19 +142,8 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // --- ADDED SPACE ---
+                        // --- SPACE ---
                         Spacer(modifier = Modifier.height(48.dp))
-
-                        // --- NEW SHARE CSV BUTTON ---
-                        Button(
-                            onClick = { shareSessionCsv(this@MainActivity) },
-                            modifier = Modifier.size(300.dp, 60.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Text("Share Trigger Motion Data (CSV)")
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
                             onClick = { toggleTrackingService() },
@@ -158,6 +155,17 @@ class MainActivity : ComponentActivity() {
                             Text(if (isServiceActive) "Close Monitoring Service" else "Start Monitoring Service")
                         }
 
+                        Spacer(modifier = Modifier.height(96.dp))
+
+                        // --- SHARE CSV BUTTON ---
+                        Button(
+                            onClick = { shareSessionCsv(this@MainActivity) },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Text("Share Trigger Motion Data (CSV)")
+                        }
+
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
@@ -166,6 +174,16 @@ class MainActivity : ComponentActivity() {
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                         ) {
                             Text("[Classify & Find Medoids]")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { csvPickerLauncher.launch("text/comma-separated-values") },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
+                        ) {
+                            Text("Replace Data from CSV")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -221,7 +239,7 @@ class MainActivity : ComponentActivity() {
         if (!pm.isIgnoringBatteryOptimizations(packageName)) {
             // We cannot use the launcher here. We must open the system settings.
             val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = android.net.Uri.parse("package:$packageName")
+                data = Uri.parse("package:$packageName")
             }
             try {
                 startActivity(intent)
@@ -331,5 +349,52 @@ class MainActivity : ComponentActivity() {
         val workRequest = OneTimeWorkRequestBuilder<RecurrentNativeWorker>().build()
         WorkManager.getInstance(this).enqueue(workRequest)
         Toast.makeText(this, "Analysis Task Enqueued", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadMotionDataFromCsv(uri: Uri) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri)
+                val reader = inputStream?.bufferedReader()
+                val lines = reader?.readLines() ?: emptyList()
+                
+                if (lines.isEmpty()) return@launch
+
+                val points = mutableListOf<ro.andi.phonebarriers.data.MotionPoint>()
+                
+                // Skip header: BarrierId,SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel
+                lines.drop(1).forEach { line ->
+                    val columns = line.split(",")
+                    if (columns.size >= 9) {
+                        points.add(
+                            ro.andi.phonebarriers.data.MotionPoint(
+                                barrierId = columns[0].toIntOrNull(),
+                                sessionId = columns[1].toLongOrNull(),
+                                timestamp = columns[2].toLong(),
+                                accuracy = columns[3].toFloat(),
+                                lat = columns[4].toDouble(),
+                                lng = columns[5].toDouble(),
+                                alt = columns[6].toDouble(),
+                                speed = columns[7].toFloat(),
+                                acceleration = columns[8].toFloat()
+                            )
+                        )
+                    }
+                }
+
+                val db = AppDatabase.getDatabase(this@MainActivity)
+                db.motionDao().clearAll()
+                db.motionDao().insertAll(points)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Successfully loaded ${points.size} points", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error loading CSV", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Failed to load CSV: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 }

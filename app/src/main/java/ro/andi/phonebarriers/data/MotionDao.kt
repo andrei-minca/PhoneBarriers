@@ -7,6 +7,12 @@ interface MotionDao {
     @Insert
     suspend fun insert(point: MotionPoint)
 
+    @Insert
+    suspend fun insertAll(points: List<MotionPoint>)
+
+    @Query("DELETE FROM motion_data")
+    suspend fun clearAll()
+
     @Query("SELECT * FROM motion_data WHERE barrierId = :barrierId AND sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getSessionData(barrierId: Int, sessionId: Long): List<MotionPoint>
 

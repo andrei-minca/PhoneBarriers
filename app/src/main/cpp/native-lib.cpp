@@ -282,15 +282,15 @@ mapSid2RelPointType convertSessionsToRelativePoints(const mapSid2RawPointRefType
             relPoints.push_back(rp);
         }
 
-//        // some logging-debugging
-//        if (sid==1785390077860){// 1785390077860 // 1784699320188
-//            // log relPoints
-//            LOGD("sid,timestamp,distance,deltaHeading,speed,acceleration");
-//            for (const auto& rp : relPoints) {
-//                LOGD("%lld,%lld,%f,%f,%f,%f",
-//                     rp.sessionId, rp.timestamp, rp.distance, rp.deltaHeading, rp.speed, rp.acceleration);
-//            }
-//        }
+        // some logging-debugging
+        if (sid==1774936118336){// 1785390077860 // 1784699320188
+            // log relPoints
+            LOGD("sid,timestamp,distance,deltaHeading,speed,acceleration [RELATIVE]");
+            for (const auto& rp : relPoints) {
+                LOGD("%lld,%lld,%f,%f,%f,%.8f",
+                     rp.sessionId, rp.timestamp, rp.distance, rp.deltaHeading, rp.speed, rp.acceleration);
+            }
+        }
 
         relativeSessionMap[sid] = std::move(relPoints);
     }
@@ -436,11 +436,11 @@ mapSid2NormPointType normalizeSessions(const mapSid2RelPointType & relativeSessi
         }
 
         // some logging-debugging
-        if (sid==1785390077860){// 1785390077860 // 1784699320188
+        if (sid==1774936118336){// 1785390077860 // 1784699320188
             // log normPoints
             LOGD("sid,timestamp,distance,deltaHeading,speed,acceleration [NORMALIZED]");
             for (const auto& np : normPoints) {
-                LOGD("%lld,%lld,%f,%f,%f,%f",
+                LOGD("%lld,%lld,%f,%f,%f,%.8f",
                      np.sessionId, np.timestamp, np.distance, np.deltaHeading, np.speed, np.acceleration);
             }
         }
@@ -699,6 +699,15 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     auto dtwDistanceMatrix = buildDistanceMatrix(normalizedSessionMap, sids);
 
     LOGD("Completed DTW Distance Matrix computation.");
+    LOGD("list of sessions ids in order: ");
+    std::string strSIDs = "[";
+    for (size_t i = 0; i < sids.size(); ++i) {
+        strSIDs += std::to_string(sids[i]);
+        if (i < sids.size() - 1) strSIDs += ',';
+        else strSIDs += ']';
+    }
+    LOGD("%s", strSIDs.c_str());
+    LOGD("------------------------------------------");
     LOGD("DTW Distance Matrix: %zu x %zu", dtwDistanceMatrix.size(), dtwDistanceMatrix[0].size());
     for (size_t i = 0; i < dtwDistanceMatrix.size(); ++i) {
         std::string mline{"[ "};
@@ -727,16 +736,33 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     }
     int clusterCount = maxClusterId;
 
-    // build clusterAssignments string
+    // build clusterAssignments & cluster2sessionIdx strings
     std::string clusterAssignments = "[";
     for (size_t i = 0; i < sids.size(); ++i) {
         clusterAssignments += std::to_string(clusterLabels[i]);
         if (i < sids.size() - 1) clusterAssignments += ',';
     }
     clusterAssignments += ']';
+    //
+    std::string cluster2sessionIdx = "[";
+    for (size_t i = 1; i < clusterCount+1; ++i) {
+        cluster2sessionIdx += "{" + std::to_string(i) + ":";
+        cluster2sessionIdx += '[';
+        for (size_t j = 0; j < sids.size(); ++j) {
+            if (clusterLabels[j] == i) {
+                cluster2sessionIdx += std::to_string(j);
+                if (j < sids.size() - 1) cluster2sessionIdx += ',';
+            }
+        }
+        cluster2sessionIdx += "]}";
+        if (i < clusterCount) cluster2sessionIdx += ',';
+    }
+    cluster2sessionIdx += ']';
+
 
     LOGD("Found %d clusters.", clusterCount);
-    LOGD("Assignments: %s", clusterAssignments.c_str());
+    LOGD("Assignments, session to cluster: %s", clusterAssignments.c_str());
+    LOGD("Assignments, cluster to sessions idx: %s", cluster2sessionIdx.c_str());
 
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -784,7 +810,7 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
             ", \"sessions_count\":" + std::to_string(sessionMap.size()) +
             ", \"cleanedSessionsCount\":" + std::to_string(cleanedSessionMap.size()) +
                 ", \"clusterCount\":" + std::to_string(clusterCount) +
-                ", \"clusterAssignments\":" + clusterAssignments +
+                ", \"cluster2sessionIdx\":" + cluster2sessionIdx +
                     ", \"medoidsIdx\":" + medoidsIdxJson +
                     ", \"medoidsSid\":" + medoidsSidJson +
                     ", \"medoidsRelativePoints\":" + medoidsRelativePointsJSON +
