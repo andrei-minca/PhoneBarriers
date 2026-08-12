@@ -8,6 +8,9 @@
 #include <cmath>
 #include <limits>
 
+#include <sstream>
+#include <format>
+
 #define LOG_TAG "NativeLib"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
@@ -25,12 +28,12 @@ struct MotionPoint {
     int id{};
     long long sessionId{};
     long long timestamp{};
-    float accuracy{};
+    double accuracy{};
     double lat{};
     double lng{};
     double alt{};
-    float speed{};
-    float acceleration{};
+    double speed{};
+    double acceleration{};
     int barrierId{};
 };
 
@@ -107,9 +110,9 @@ typedef std::map<long long, std::vector<std::vector<MotionPoint>::const_iterator
  */
 mapSid2RawPointRefType cleanAndFilterSessions(const mapSid2RawPointRefType & sessionMap) {
 
-    float T1 = 20.0;
+    double T1 = 20.0;
     int T1a = 30;
-    float T1b = 10.0;
+    double T1b = 10.0;
 
     mapSid2RawPointRefType cleanedSessionMap;
 
@@ -157,10 +160,10 @@ mapSid2RawPointRefType cleanAndFilterSessions(const mapSid2RawPointRefType & ses
 struct RelativePoint {
     long long sessionId{};
     long long timestamp{};
-    float distance{};
-    float deltaHeading{};
-    float speed{};
-    float acceleration{};
+    double distance{};
+    double deltaHeading{};
+    double speed{};
+    double acceleration{};
 
     std::string toStringJSONLike() const {
         return std::string("{")
@@ -258,7 +261,7 @@ mapSid2RelPointType convertSessionsToRelativePoints(const mapSid2RawPointRefType
             rp.acceleration = current.acceleration;
 
             // 1. Distance
-            rp.distance = (float)calculateHaversineDistanceLLA(
+            rp.distance = (double)calculateHaversineDistanceLLA(
                     current.lat, current.lng, current.alt,
                     target.lat, target.lng, target.alt
             );
@@ -274,7 +277,7 @@ mapSid2RelPointType convertSessionsToRelativePoints(const mapSid2RawPointRefType
             }
 
             // 3. Delta heading
-            rp.deltaHeading = (float)getDeltaHeading(
+            rp.deltaHeading = (double)getDeltaHeading(
                     current.lat, current.lng, currentHeading,
                     target.lat, target.lng
             );
@@ -287,7 +290,7 @@ mapSid2RelPointType convertSessionsToRelativePoints(const mapSid2RawPointRefType
             // log relPoints
             LOGD("sid,timestamp,distance,deltaHeading,speed,acceleration [RELATIVE]");
             for (const auto& rp : relPoints) {
-                LOGD("%lld,%lld,%f,%f,%f,%.8f",
+                LOGD("%lld,%lld,%f,%f,%f,%f",
                      rp.sessionId, rp.timestamp, rp.distance, rp.deltaHeading, rp.speed, rp.acceleration);
             }
         }
@@ -303,10 +306,10 @@ mapSid2RelPointType convertSessionsToRelativePoints(const mapSid2RawPointRefType
 struct NormPoint {
     long long sessionId{};
     long long timestamp{};
-    float distance{};
-    float deltaHeading{};
-    float speed{};
-    float acceleration{};
+    double distance{};
+    double deltaHeading{};
+    double speed{};
+    double acceleration{};
 };
 
 typedef std::map<long long, std::vector<NormPoint>> mapSid2NormPointType;
@@ -440,7 +443,7 @@ mapSid2NormPointType normalizeSessions(const mapSid2RelPointType & relativeSessi
             // log normPoints
             LOGD("sid,timestamp,distance,deltaHeading,speed,acceleration [NORMALIZED]");
             for (const auto& np : normPoints) {
-                LOGD("%lld,%lld,%f,%f,%f,%.8f",
+                LOGD("%lld,%lld,%f,%f,%f,%f",
                      np.sessionId, np.timestamp, np.distance, np.deltaHeading, np.speed, np.acceleration);
             }
         }
@@ -459,11 +462,11 @@ mapSid2NormPointType normalizeSessions(const mapSid2RelPointType & relativeSessi
  * @param p2
  * @return
  */
-float euclideanDistance(const NormPoint& p1, const NormPoint& p2) {
-    float d1 = p1.distance - p2.distance;
-    float d2 = p1.deltaHeading - p2.deltaHeading;
-    float d3 = p1.speed - p2.speed;
-    float d4 = p1.acceleration - p2.acceleration;
+double euclideanDistance(const NormPoint& p1, const NormPoint& p2) {
+    double d1 = p1.distance - p2.distance;
+    double d2 = p1.deltaHeading - p2.deltaHeading;
+    double d3 = p1.speed - p2.speed;
+    double d4 = p1.acceleration - p2.acceleration;
     return std::sqrt(d1 * d1 + d2 * d2 + d3 * d3 + d4 * d4);
 }
 
@@ -473,17 +476,17 @@ float euclideanDistance(const NormPoint& p1, const NormPoint& p2) {
  * @param s2
  * @return
  */
-float computeDtwDistance(const std::vector<NormPoint>& s1, const std::vector<NormPoint>& s2) {
+double computeDtwDistance(const std::vector<NormPoint>& s1, const std::vector<NormPoint>& s2) {
     size_t n = s1.size();
     size_t m = s2.size();
-    if (n == 0 || m == 0) return 0.0f;
+    if (n == 0 || m == 0) return 0.0;
 
-    std::vector<std::vector<float>> dtw(n + 1, std::vector<float>(m + 1, std::numeric_limits<float>::infinity()));
-    dtw[0][0] = 0.0f;
+    std::vector<std::vector<double>> dtw(n + 1, std::vector<double>(m + 1, std::numeric_limits<double>::infinity()));
+    dtw[0][0] = 0.0;
 
     for (size_t i = 1; i <= n; ++i) {
         for (size_t j = 1; j <= m; ++j) {
-            float cost = euclideanDistance(s1[i - 1], s2[j - 1]);
+            double cost = euclideanDistance(s1[i - 1], s2[j - 1]);
             dtw[i][j] = cost + std::min({dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1]});
         }
     }
@@ -496,10 +499,10 @@ float computeDtwDistance(const std::vector<NormPoint>& s1, const std::vector<Nor
  * @param sids (output) ordered list of session IDs
  * @return
  */
-std::vector<std::vector<float>> buildDistanceMatrix(const mapSid2NormPointType& normalizedSessionMap,
+std::vector<std::vector<double>> buildDistanceMatrix(const mapSid2NormPointType& normalizedSessionMap,
                                                     std::vector<long long>& sids) {
     size_t N = normalizedSessionMap.size();
-    std::vector<std::vector<float>> matrix(N, std::vector<float>(N, 0.0f));
+    std::vector<std::vector<double>> matrix(N, std::vector<double>(N, 0.0));
 
     std::vector<const std::vector<NormPoint>*> sessions;
     sessions.reserve(N);
@@ -513,7 +516,7 @@ std::vector<std::vector<float>> buildDistanceMatrix(const mapSid2NormPointType& 
     LOGD("Building %zu x %zu DTW Distance Matrix...", N, N);
     for (size_t i = 0; i < N; ++i) {
         for (size_t j = i + 1; j < N; ++j) {
-            float dist = computeDtwDistance(*sessions[i], *sessions[j]);
+            double dist = computeDtwDistance(*sessions[i], *sessions[j]);
             matrix[i][j] = dist;
             matrix[j][i] = dist;
         }
@@ -528,7 +531,7 @@ std::vector<std::vector<float>> buildDistanceMatrix(const mapSid2NormPointType& 
  * @param minSamples minimum points to form a cluster
  * @return list of labels for each index (-1 for noise, 0+ for cluster ID)
  */
-std::vector<int> runDbscan(const std::vector<std::vector<float>>& distanceMatrix, float eps, int minSamples) {
+std::vector<int> runDbscan(const std::vector<std::vector<double>>& distanceMatrix, double eps, int minSamples) {
     size_t n = distanceMatrix.size();
     if (n == 0) return {};
 
@@ -597,7 +600,7 @@ std::vector<int> runDbscan(const std::vector<std::vector<float>>& distanceMatrix
  * @param clusterLabels
  * @return map clusterId -> medoid index in distanceMatrix
  */
-std::map<int, int> findMedoids(const std::vector<std::vector<float>>& distanceMatrix, const std::vector<int>& clusterLabels) {
+std::map<int, int> findMedoids(const std::vector<std::vector<double>>& distanceMatrix, const std::vector<int>& clusterLabels) {
     std::map<int, std::vector<int>> clusterToIndices;
     for (size_t i = 0; i < clusterLabels.size(); ++i) {
         if (clusterLabels[i] > 0) {
@@ -610,11 +613,11 @@ std::map<int, int> findMedoids(const std::vector<std::vector<float>>& distanceMa
         int clusterId = pair.first;
         const std::vector<int>& indices = pair.second;
 
-        float minSum = std::numeric_limits<float>::max();
+        double minSum = std::numeric_limits<double>::max();
         int medoidIdx = -1;
 
         for (int i : indices) {
-            float currentSum = 0.0f;
+            double currentSum = 0.0;
             for (int j : indices) {
                 currentSum += distanceMatrix[i][j];
             }
@@ -721,7 +724,7 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // cluster the sessions / runs / time series using DBSCAN with a distance threshold of TC1 (5.2) and a minimum of TS1 (3) samples per cluster
-    float TC1 = 5.2f;
+    double TC1 = 5.2;
     int TS1 = 3;
     auto clusterLabels = runDbscan(dtwDistanceMatrix, TC1, TS1);
 
