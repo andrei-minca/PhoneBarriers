@@ -55,7 +55,7 @@ class RecurrentNativeWorker(
     private suspend fun showResultNotification(barrierId: Int, result: String) {
         val db = AppDatabase.getDatabase(applicationContext)
         val barrier = db.barrierDao().getById(barrierId)
-        val barrierName = barrier?.name ?: "Unknown Barrier"
+        val barrierName = barrier?.shortName ?: "Unknown Barrier"
 
         val builder = NotificationCompat.Builder(applicationContext, "classification_results_channel")
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)

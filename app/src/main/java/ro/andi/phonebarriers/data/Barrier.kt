@@ -6,7 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "barriers")
 data class Barrier(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val name: String,
+    val shortName: String,
+    val description: String,
+    val color: Int,
     val phoneNumberTo: String,
     val phoneNumberFrom: String,
     val latitude: Double,
