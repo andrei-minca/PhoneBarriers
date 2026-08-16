@@ -13,8 +13,8 @@ data class Barrier(
     val phoneNumberFrom: String,
     val latitude: Double,
     val longitude: Double,
-    val radius: Float, // Trigger radius in meters
-    val isEnabledAutoTrigger: Boolean = true,
+    val radius: Float = 50.0f, // Trigger radius in meters
+    val isEnabledAutoTrigger: Boolean = false,
     val hasOptedAutoTrigger: Boolean = false,
     val countLift: Int = 0,
     val countLiftNLearn: Int = 0,

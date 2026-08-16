@@ -9,6 +9,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -19,6 +21,7 @@ import ro.andi.phonebarriers.data.Barrier
 @Composable
 fun BarrierForm(
     barrier: Barrier? = null,
+    currentLocation: LatLng? = null,
     onSave: (Barrier) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -27,11 +30,12 @@ fun BarrierForm(
     var color by remember { mutableStateOf(barrier?.color ?: Color.Red.toArgb()) }
     var phoneTo by remember { mutableStateOf(barrier?.phoneNumberTo ?: "") }
     var phoneFrom by remember { mutableStateOf(barrier?.phoneNumberFrom ?: "") }
-    var latitude by remember { mutableStateOf(barrier?.latitude ?: 0.0) }
-    var longitude by remember { mutableStateOf(barrier?.longitude ?: 0.0) }
+    var latitude by remember { mutableStateOf(barrier?.latitude ?: (currentLocation?.latitude ?: 0.0) ) }
+    var longitude by remember { mutableStateOf(barrier?.longitude ?: (currentLocation?.longitude ?: 45.0) ) }
     var radius by remember { mutableStateOf(barrier?.radius ?: 50f) }
     var hasOptedAutoTrigger by remember { mutableStateOf(barrier?.hasOptedAutoTrigger ?: false) }
     var showOptInfo by remember { mutableStateOf(false) }
+    var columnScrollingEnabled by remember { mutableStateOf(true) }
 
     if (showOptInfo) {
         AlertDialog(
@@ -59,10 +63,10 @@ fun BarrierForm(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState(), enabled = columnScrollingEnabled),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Barrier Info", style = MaterialTheme.typography.titleLarge)
+        Text("Barrier Info" + " (id: ${barrier?.id?:"0"})", style = MaterialTheme.typography.titleLarge)
 
         OutlinedTextField(value = shortName, onValueChange = { shortName = it }, label = { Text("Short Name") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
@@ -91,7 +95,24 @@ fun BarrierForm(
         if (hasOptedAutoTrigger) {
             Text("Barrier Location & Auto-Trigger Radius", style = MaterialTheme.typography.titleMedium)
 
-            Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .height(300.dp)
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val dragEvent = event.changes.any { it.pressed }
+                                if (dragEvent) {
+                                    columnScrollingEnabled = false
+                                } else {
+                                    columnScrollingEnabled = true
+                                }
+                            }
+                        }
+                    }
+            ) {
                 val markerState = rememberMarkerState(position = LatLng(latitude, longitude))
 
                 // Sync marker position if latitude/longitude changes externally (though here it's vice versa)

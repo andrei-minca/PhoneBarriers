@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -170,6 +169,7 @@ fun BarrierManagementScreen(
             Box(modifier = Modifier.padding(padding)) {
                 BarrierForm(
                     barrier = editingBarrier,
+                    currentLocation = currentLocation,
                     onSave = {
                         if (editingBarrier != null) {
                             viewModel.updateBarrier(it)
