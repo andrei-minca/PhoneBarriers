@@ -16,6 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.Barrier
 import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
@@ -38,14 +42,41 @@ class BarrierManagementActivity : ComponentActivity() {
                             startActivity(Intent(this, AdminActivity::class.java))
                         },
                         onLift = { barrier ->
-                            CallRepository.triggerOneRing(barrier.phoneNumberTo, barrier.phoneNumberFrom) { success ->
+                            viewModel.incrementLiftCount(barrier)
+                            // A. Trigger the API/Call (location: anywhere)
+                            CallRepository.triggerOneRing(
+                                barrier.phoneNumberTo,
+                                barrier.phoneNumberFrom) { success ->
                                 runOnUiThread {
                                     Toast.makeText(this, if (success) "Lift triggered for ${barrier.shortName}" else "Failed to trigger lift", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
-                        onSmartLift = { barrier ->
-                            Toast.makeText(this, "Smart-lift triggered for ${barrier.shortName} (Feature coming soon)", Toast.LENGTH_SHORT).show()
+                        onLiftNLearn = { barrier ->
+                            viewModel.incrementLiftNLearnCount(barrier)
+                            // A. Trigger the API/Call (location: should be inside radius
+                            CallRepository.triggerOneRing(
+                                barrier.phoneNumberTo,
+                                barrier.phoneNumberFrom) { success ->
+                                runOnUiThread {
+                                    Toast.makeText(this, if (success) "Lift & Lear triggered for ${barrier.shortName}" else "Failed to trigger lift & learn", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            // B. Tag recent motion points (Same logic as Activity)
+                            CoroutineScope(Dispatchers.IO).launch {
+                                run {
+                                    val sessionId = System.currentTimeMillis()
+                                    val db = AppDatabase.getDatabase(this@BarrierManagementActivity)
+                                    val dao = db.motionDao()
+
+                                    // Tag points from the last 30.9 seconds that don't have a sessionId yet
+                                    val threshold = System.currentTimeMillis() - 30900
+                                    dao.tagRecentPoints(sessionId, 0, threshold)
+
+                                    // Optional: Clean up very old data (> 1 minute)
+                                    dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
+                                }
+                            }
                         },
                     )
                 }
@@ -58,8 +89,8 @@ class BarrierManagementActivity : ComponentActivity() {
             shortName = BuildConfig.TEST_BARRIER_SHORTNAME,
             description = BuildConfig.TEST_BARRIER_DESCRIPTION,
             color = java.lang.Long.decode(BuildConfig.TEST_BARRIER_COLOR).toInt(),
-            phoneTo = BuildConfig.TEST_PHONE_NUMBER_TO,
-            phoneFrom = BuildConfig.TEST_PHONE_NUMBER_FROM,
+            phoneTo = BuildConfig.TEST_BARRIER_PHONE_NUMBER_TO,
+            phoneFrom = BuildConfig.TEST_BARRIER_PHONE_NUMBER_FROM,
             lat = BuildConfig.TEST_BARRIER_LATITUDE.toDouble(),
             lng = BuildConfig.TEST_BARRIER_LONGITUDE.toDouble(),
             radius = BuildConfig.TEST_BARRIER_RADIUS.toFloat()
@@ -73,7 +104,7 @@ fun BarrierManagementScreen(
     viewModel: BarrierManagementViewModel,
     onOpenAdmin: () -> Unit,
     onLift: (Barrier) -> Unit,
-    onSmartLift: (Barrier) -> Unit
+    onLiftNLearn: (Barrier) -> Unit
 ) {
     val barriers by viewModel.barriers.collectAsState()
     var showForm by remember { mutableStateOf(value = false) }
@@ -139,7 +170,10 @@ fun BarrierManagementScreen(
                         onEdit = { editingBarrier = barrier },
                         onDelete = { viewModel.deleteBarrier(barrier) },
                         onLift = { onLift(barrier) },
-                        onSmartLift = { onSmartLift(barrier) }
+                        onLiftNLearn = { onLiftNLearn(barrier) },
+                        onToggleAutoTrigger = { enabled ->
+                            viewModel.toggleAutoTrigger(barrier, enabled)
+                        }
                     )
                 }
             }

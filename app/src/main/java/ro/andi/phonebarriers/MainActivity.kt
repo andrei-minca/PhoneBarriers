@@ -126,21 +126,21 @@ class AdminActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Button(
-                            enabled = !isLoading,
-                            onClick = { performLiftAction() },
-                            modifier = Modifier.size(200.dp, 60.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
-                                Text("Lift "+VALUE_BARRIER_NAME)
-                            }
-                        }
+//                        Button(
+//                            enabled = !isLoading,
+//                            onClick = { performLiftAction() },
+//                            modifier = Modifier.size(200.dp, 60.dp),
+//                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+//                        ) {
+//                            if (isLoading) {
+//                                CircularProgressIndicator(
+//                                    color = Color.White,
+//                                    modifier = Modifier.size(24.dp)
+//                                )
+//                            } else {
+//                                Text("Lift "+VALUE_BARRIER_NAME)
+//                            }
+//                        }
 
                         // --- SPACE ---
                         Spacer(modifier = Modifier.height(48.dp))

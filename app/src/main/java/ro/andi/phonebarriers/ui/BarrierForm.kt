@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -29,6 +30,21 @@ fun BarrierForm(
     var latitude by remember { mutableStateOf(barrier?.latitude ?: 0.0) }
     var longitude by remember { mutableStateOf(barrier?.longitude ?: 0.0) }
     var radius by remember { mutableStateOf(barrier?.radius ?: 50f) }
+    var hasOptedAutoTrigger by remember { mutableStateOf(barrier?.hasOptedAutoTrigger ?: false) }
+    var showOptInfo by remember { mutableStateOf(false) }
+
+    if (showOptInfo) {
+        AlertDialog(
+            onDismissRequest = { showOptInfo = false },
+            title = { Text("Lift-Learning & Auto-Trigger") },
+            text = { Text("This feature will learn from your manual lifts and automatically trigger the barrier when you are within the specified radius. Location permissions will be required for background tracking.") },
+            confirmButton = {
+                TextButton(onClick = { showOptInfo = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(latitude, longitude), 15f)
@@ -53,42 +69,66 @@ fun BarrierForm(
         ColorInput(label = "Color:", selectedColor = color, onColorSelected = { color = it })
         OutlinedTextField(value = phoneTo, onValueChange = { phoneTo = it }, label = { Text("Barrier Phone Number (To)") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = phoneFrom, onValueChange = { phoneFrom = it }, label = { Text("Caller Phone Number (From)") }, modifier = Modifier.fillMaxWidth())
-        
-        Text("Location & Auto-Trigger-Radius", style = MaterialTheme.typography.titleMedium)
-        
-        Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
-            val markerState = rememberMarkerState(position = LatLng(latitude, longitude))
-            
-            // Sync marker position if latitude/longitude changes externally (though here it's vice versa)
-            LaunchedEffect(latitude, longitude) {
-                markerState.position = LatLng(latitude, longitude)
-            }
 
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState
-            ) {
-                Marker(
-                    state = markerState,
-                    title = "Barrier Location"
-                )
-                Circle(
-                    center = LatLng(latitude, longitude),
-                    radius = radius.toDouble(),
-                    fillColor = Color.Red.copy(alpha = 0.3f),
-                    strokeColor = Color.Red,
-                    strokeWidth = 2f
-                )
-            }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Opt for Lift-Learning & Auto-Trigger", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Switch(
+                checked = hasOptedAutoTrigger,
+                onCheckedChange = {
+                    if (!hasOptedAutoTrigger && it) {
+                        showOptInfo = true
+                    }
+                    hasOptedAutoTrigger = it
+                }
+            )
         }
 
-        Slider(
-            value = radius,
-            onValueChange = { radius = it },
-            valueRange = 10f..500f,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text("Auto-Trigger-Radius: ${radius.toInt()} meters")
+        if (hasOptedAutoTrigger) {
+            Text("Barrier Location & Auto-Trigger Radius", style = MaterialTheme.typography.titleMedium)
+
+            Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
+                val markerState = rememberMarkerState(position = LatLng(latitude, longitude))
+
+                // Sync marker position if latitude/longitude changes externally (though here it's vice versa)
+                LaunchedEffect(latitude, longitude) {
+                    markerState.position = LatLng(latitude, longitude)
+                }
+
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState
+                ) {
+                    Marker(
+                        state = markerState,
+                        title = "Barrier Location"
+                    )
+                    Circle(
+                        center = LatLng(latitude, longitude),
+                        radius = radius.toDouble(),
+                        fillColor = Color.Red.copy(alpha = 0.3f),
+                        strokeColor = Color.Red,
+                        strokeWidth = 2f
+                    )
+                }
+            }
+
+            Slider(
+                value = radius,
+                onValueChange = { radius = it },
+                valueRange = 10f..500f,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text("Auto-Trigger Radius: ${radius.toInt()} meters")
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -107,7 +147,12 @@ fun BarrierForm(
                         phoneNumberFrom = phoneFrom,
                         latitude = latitude,
                         longitude = longitude,
-                        radius = radius
+                        radius = radius,
+                        hasOptedAutoTrigger = hasOptedAutoTrigger,
+                        isEnabledAutoTrigger = barrier?.isEnabledAutoTrigger ?: true,
+                        countLift = barrier?.countLift ?: 0,
+                        countLiftNLearn = barrier?.countLiftNLearn ?: 0,
+                        countAutoTriggered = barrier?.countAutoTriggered ?: 0
                     )
                 )
             }) {

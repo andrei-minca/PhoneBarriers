@@ -14,5 +14,9 @@ data class Barrier(
     val latitude: Double,
     val longitude: Double,
     val radius: Float, // Trigger radius in meters
-    val isEnabled: Boolean = true
+    val isEnabledAutoTrigger: Boolean = true,
+    val hasOptedAutoTrigger: Boolean = false,
+    val countLift: Int = 0,
+    val countLiftNLearn: Int = 0,
+    val countAutoTriggered: Int = 0
 )

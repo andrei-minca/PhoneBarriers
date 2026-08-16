@@ -39,7 +39,8 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
                     phoneNumberFrom = phoneFrom,
                     latitude = lat,
                     longitude = lng,
-                    radius = radius
+                    radius = radius,
+                    hasOptedAutoTrigger = true // Assuming seed data wants this enabled for demo
                 )
                 barrierDao.insert(testBarrier)
             }
@@ -56,6 +57,22 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
         viewModelScope.launch {
             barrierDao.update(barrier)
         }
+    }
+
+    fun incrementLiftCount(barrier: Barrier) {
+        updateBarrier(barrier.copy(countLift = barrier.countLift + 1))
+    }
+
+    fun incrementLiftNLearnCount(barrier: Barrier) {
+        updateBarrier(barrier.copy(countLiftNLearn = barrier.countLiftNLearn + 1))
+    }
+
+    fun incrementAutoTriggeredCount(barrier: Barrier) {
+        updateBarrier(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
+    }
+
+    fun toggleAutoTrigger(barrier: Barrier, enabled: Boolean) {
+        updateBarrier(barrier.copy(isEnabledAutoTrigger = enabled))
     }
 
     fun deleteBarrier(barrier: Barrier) {

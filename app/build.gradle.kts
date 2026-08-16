@@ -43,10 +43,10 @@ android {
         buildConfigField("String", "TEST_BARRIER_COLOR",
             properties.getProperty("TEST_BARRIER_COLOR") ?: "\"0x00000000\"")
         // to & from phone numbers
-        buildConfigField("String", "TEST_PHONE_NUMBER_TO",
-            properties.getProperty("TEST_PHONE_NUMBER_TO") ?: "\"\"")
-        buildConfigField("String", "TEST_PHONE_NUMBER_FROM",
-            properties.getProperty("TEST_PHONE_NUMBER_FROM") ?: "\"\"")
+        buildConfigField("String", "TEST_BARRIER_PHONE_NUMBER_TO",
+            properties.getProperty("TEST_BARRIER_PHONE_NUMBER_TO") ?: "\"\"")
+        buildConfigField("String", "TEST_BARRIER_PHONE_NUMBER_FROM",
+            properties.getProperty("TEST_BARRIER_PHONE_NUMBER_FROM") ?: "\"\"")
         // latitude & longitude & radius
         buildConfigField("String", "TEST_BARRIER_LATITUDE",
             properties.getProperty("TEST_BARRIER_LATITUDE") ?: "\"0.0\"")

@@ -6,8 +6,8 @@ import java.io.IOException
 
 object CallRepository {
 
-    public const val KEY_TO = BuildConfig.TEST_PHONE_NUMBER_TO
-    public const val KEY_FROM = BuildConfig.TEST_PHONE_NUMBER_FROM
+    public const val KEY_TO = BuildConfig.TEST_BARRIER_PHONE_NUMBER_TO
+    public const val KEY_FROM = BuildConfig.TEST_BARRIER_PHONE_NUMBER_FROM
 
     private val client = OkHttpClient()
     private const val TWILIO_FUNC_URL = BuildConfig.TWILIO_FUNC_URL
