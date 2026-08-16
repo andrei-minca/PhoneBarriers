@@ -17,7 +17,7 @@ class CallWidget : AppWidgetProvider() {
 
     private val ACTION_CLICK = "com.yourapp.ACTION_WIDGET_CALL"
 
-    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_NAME // or dynamic update if multiple barriers
+    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_SHORTNAME // or dynamic update if multiple barriers
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (appWidgetId in appWidgetIds) {

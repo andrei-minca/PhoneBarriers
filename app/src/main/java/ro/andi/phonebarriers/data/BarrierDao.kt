@@ -5,6 +5,9 @@ import androidx.room.*
 @Dao
 interface BarrierDao {
     @Query("SELECT * FROM barriers")
+    fun getAllFlow(): kotlinx.coroutines.flow.Flow<List<Barrier>>
+
+    @Query("SELECT * FROM barriers")
     suspend fun getAll(): List<Barrier>
 
     @Query("SELECT * FROM barriers WHERE id = :id")

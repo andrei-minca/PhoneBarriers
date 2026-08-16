@@ -56,9 +56,9 @@ private val LightColorScheme = lightColorScheme(
     surface = Color(0xFFFFFBFE),
 )
 
-class MainActivity : ComponentActivity() {
+class AdminActivity : ComponentActivity() {
 
-    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_NAME // or dynamic update if multiple barriers
+    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_SHORTNAME // or dynamic update if multiple barriers
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                 Toast.LENGTH_LONG).show()
         }
     }
-    // Inside MainActivity class
+    // Inside AdminActivity class
     private var isLoading by mutableStateOf(false)
 
     private var isServiceActive by mutableStateOf(false)
@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.Default) {
             val message = NativeLib.stringFromJNI()
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AdminActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
 
                         // --- SHARE CSV BUTTON ---
                         Button(
-                            onClick = { shareSessionCsv(this@MainActivity) },
+                            onClick = { shareSessionCsv(this@AdminActivity) },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
@@ -252,9 +252,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun performLiftAction() {
-        Log.d("MainActivity", "Button clicked!")
+        Log.d("AdminActivity", "Button clicked!")
         if (isLoading) {
-            Log.w("MainActivity", "Still performing an action, clicked ignored!")
+            Log.w("AdminActivity", "Still performing an action, clicked ignored!")
             return
         }
         isLoading = true // Start loading
@@ -265,7 +265,7 @@ class MainActivity : ComponentActivity() {
         )
         { /* handle success/fail if needed */ }
 
-        onTriggerButtonPressed(this@MainActivity)
+        onTriggerButtonPressed(this@AdminActivity)
 
         lifecycleScope.launch {
             delay(5000) // Non-blocking delay
@@ -382,17 +382,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val db = AppDatabase.getDatabase(this@MainActivity)
+                val db = AppDatabase.getDatabase(this@AdminActivity)
                 db.motionDao().clearAll()
                 db.motionDao().insertAll(points)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Successfully loaded ${points.size} points", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@AdminActivity, "Successfully loaded ${points.size} points", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Error loading CSV", e)
+                Log.e("AdminActivity", "Error loading CSV", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Failed to load CSV: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@AdminActivity, "Failed to load CSV: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

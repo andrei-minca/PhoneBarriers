@@ -2,16 +2,15 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
 
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 
 }
 
 android {
     namespace = "ro.andi.phonebarriers"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "ro.andi.phonebarriers"
@@ -34,17 +33,37 @@ android {
             properties.getProperty("TWILIO_FUNC_URL_MAKE_ONE_RING_5_SECONDS") ?: "\"\"")
         buildConfigField("String", "TWILIO_FUNC_SECRET",
             properties.getProperty("TWILIO_FUNC_SECRET") ?: "\"\"")
+        // test barrier shortname
+        buildConfigField("String", "TEST_BARRIER_SHORTNAME",
+            properties.getProperty("TEST_BARRIER_SHORTNAME") ?: "\"BARRIER\"")
+        // test barrier description
+        buildConfigField("String", "TEST_BARRIER_DESCRIPTION",
+            properties.getProperty("TEST_BARRIER_DESCRIPTION") ?: "\"BARRIER-DESCRIPTION\"")
+        // test barrier color
+        buildConfigField("String", "TEST_BARRIER_COLOR",
+            properties.getProperty("TEST_BARRIER_COLOR") ?: "\"0x00000000\"")
         // to & from phone numbers
         buildConfigField("String", "TEST_PHONE_NUMBER_TO",
             properties.getProperty("TEST_PHONE_NUMBER_TO") ?: "\"\"")
         buildConfigField("String", "TEST_PHONE_NUMBER_FROM",
             properties.getProperty("TEST_PHONE_NUMBER_FROM") ?: "\"\"")
-        // test barrier name
-        buildConfigField("String", "TEST_BARRIER_NAME",
-            properties.getProperty("TEST_BARRIER_NAME") ?: "\"BARRIER\"")
+        // latitude & longitude & radius
+        buildConfigField("String", "TEST_BARRIER_LATITUDE",
+            properties.getProperty("TEST_BARRIER_LATITUDE") ?: "\"0.0\"")
+        buildConfigField("String", "TEST_BARRIER_LONGITUDE",
+            properties.getProperty("TEST_BARRIER_LONGITUDE") ?: "\"0.0\"")
+        buildConfigField("String", "TEST_BARRIER_RADIUS",
+            properties.getProperty("TEST_BARRIER_RADIUS") ?: "\"0\"")
+        
+        // maps api key - kept fix (no quotes in local.properties, wrapped here for BuildConfig)
+        val mapsApiKey = properties.getProperty("MAPS_API_KEY") ?: ""
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+
         // default active hours list
         buildConfigField("String", "DEFAULT_ACTIVE_HOURS_LIST",
             properties.getProperty("DEFAULT_ACTIVE_HOURS_LIST") ?: "\"8,9,10,11,12,13,14,15,16,17\"")
+
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {
@@ -59,9 +78,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
 
     buildFeatures {
@@ -101,30 +117,31 @@ dependencies {
     androidTestImplementation(composeBom)
 
     // Core Compose libraries
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation(libs.androidx.compose.ui)
 
     // Material Design 3 (The current standard)
-    implementation("androidx.compose.material3:material3")
+    implementation(libs.androidx.compose.material3)
 
     // Integration with Activities
-    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation(libs.androidx.activity.compose)
 
     // Networking (OkHttp for your Twilio calls)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp)
 
     // Android Studio Preview support
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.tooling.preview)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
     // Gson library for JSON serialization/deserialization in AppPreferences
-    implementation("com.google.code.gson:gson:2.14.0") // Or the latest stable version
+    implementation(libs.gson) // Or the latest stable version
 
     implementation(libs.androidx.work.runtime.ktx)
 
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
+    implementation(libs.androidx.material.icons.extended)
 }

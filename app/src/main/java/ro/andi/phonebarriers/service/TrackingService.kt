@@ -14,7 +14,7 @@ import com.google.android.gms.location.*
 import com.google.android.gms.location.FusedLocationProviderClient
 import kotlinx.coroutines.*
 import ro.andi.phonebarriers.BuildConfig
-import ro.andi.phonebarriers.MainActivity
+import ro.andi.phonebarriers.AdminActivity
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.MotionPoint
 import ro.andi.phonebarriers.R
@@ -22,7 +22,7 @@ import ro.andi.phonebarriers.data.AppPreferences
 
 class TrackingService : Service(), SensorEventListener {
 
-    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_NAME // or dynamic update if multiple barriers
+    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_SHORTNAME // or dynamic update if multiple barriers
 
     private lateinit var sensorManager: SensorManager
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -135,7 +135,7 @@ class TrackingService : Service(), SensorEventListener {
     }
     private fun createNotification(): Notification {
 
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        val notificationIntent = Intent(this, AdminActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -165,8 +165,8 @@ class TrackingService : Service(), SensorEventListener {
         val delaySleepIntent = Intent(this, ControlReceiver::class.java).apply { action = "ACTION_DELAY_SLEEP" }
         val pDelaySleep = PendingIntent.getBroadcast(this, 4, delaySleepIntent, PendingIntent.FLAG_IMMUTABLE)
 
-        // Intent to open MainActivity and trigger the lift
-        val liftIntent = Intent(this, MainActivity::class.java).apply {
+        // Intent to open AdminActivity and trigger the lift
+        val liftIntent = Intent(this, AdminActivity::class.java).apply {
             action = "ACTION_TRIGGER_LIFT" // Custom action
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
