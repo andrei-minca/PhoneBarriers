@@ -1,10 +1,14 @@
 package ro.andi.phonebarriers
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +20,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,6 +41,27 @@ class BarrierManagementActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    if (permissions.values.any { it }) {
+                        viewModel.startLocationUpdates()
+                    }
+                }
+
+                LaunchedEffect(Unit) {
+                    val permissions = arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    val allGranted = permissions.all { ContextCompat.checkSelfPermission(this@BarrierManagementActivity, it) == PackageManager.PERMISSION_GRANTED }
+                    if (!allGranted) {
+                        permissionLauncher.launch(permissions)
+                    } else {
+                        viewModel.startLocationUpdates()
+                    }
+                }
+
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     BarrierManagementScreen(
                         viewModel = viewModel,
@@ -107,6 +134,7 @@ fun BarrierManagementScreen(
     onLiftNLearn: (Barrier) -> Unit
 ) {
     val barriers by viewModel.barriers.collectAsState()
+    val currentLocation by viewModel.currentLocation.collectAsState()
     var showForm by remember { mutableStateOf(value = false) }
     var editingBarrier by remember { mutableStateOf<Barrier?>(null) }
 
@@ -167,6 +195,7 @@ fun BarrierManagementScreen(
                 items(barriers) { barrier ->
                     BarrierListItem(
                         barrier = barrier,
+                        currentLocation = currentLocation,
                         onEdit = { editingBarrier = barrier },
                         onDelete = { viewModel.deleteBarrier(barrier) },
                         onLift = { onLift(barrier) },

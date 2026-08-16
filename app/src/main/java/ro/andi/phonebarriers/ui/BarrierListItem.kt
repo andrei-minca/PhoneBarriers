@@ -26,6 +26,7 @@ import ro.andi.phonebarriers.data.Barrier
 @Composable
 fun BarrierListItem(
     barrier: Barrier,
+    currentLocation: LatLng?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onLift: () -> Unit,
@@ -33,6 +34,20 @@ fun BarrierListItem(
     onToggleAutoTrigger: (Boolean) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showLiftNLearnDialog by remember { mutableStateOf(false) }
+
+    val distance = remember(currentLocation, barrier) {
+        if (currentLocation == null) return@remember Float.MAX_VALUE
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(
+            currentLocation.latitude, currentLocation.longitude,
+            barrier.latitude, barrier.longitude,
+            results
+        )
+        results[0]
+    }
+
+    val isInsideRadius = distance <= barrier.radius
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -53,6 +68,43 @@ fun BarrierListItem(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showLiftNLearnDialog) {
+        AlertDialog(
+            onDismissRequest = { showLiftNLearnDialog = false },
+            title = { Text(if (isInsideRadius) "Inside Radius" else "Outside Radius") },
+            text = {
+                if (isInsideRadius) {
+                    Text("You are inside the radius (${distance.toInt()}m). Proceed with Lift & Learn?")
+                } else {
+                    Text("You are outside the radius (${if (currentLocation == null) "Unknown" else "${distance.toInt()}m"}). You must be within ${barrier.radius.toInt()}m to use Lift & Learn.")
+                }
+            },
+            confirmButton = {
+                if (isInsideRadius) {
+                    TextButton(
+                        onClick = {
+                            showLiftNLearnDialog = false
+                            onLiftNLearn()
+                        }
+                    ) {
+                        Text("Lift")
+                    }
+                } else {
+                    TextButton(onClick = { showLiftNLearnDialog = false }) {
+                        Text("OK")
+                    }
+                }
+            },
+            dismissButton = {
+                if (isInsideRadius) {
+                    TextButton(onClick = { showLiftNLearnDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             }
         )
@@ -181,9 +233,11 @@ fun BarrierListItem(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = onLiftNLearn,
+                            onClick = { showLiftNLearnDialog = true },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0088FF))
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isInsideRadius) Color(0xFF0088FF) else Color.Gray
+                            )
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(Modifier.width(4.dp))

@@ -1,15 +1,25 @@
 package ro.andi.phonebarriers
 
 import android.app.Application
+import android.os.Looper
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.Barrier
 
 class BarrierManagementViewModel(application: Application) : AndroidViewModel(application) {
+    private val TAG = "BarrierVM"
     private val barrierDao = AppDatabase.getDatabase(application).barrierDao()
+    private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
     val barriers: StateFlow<List<Barrier>> = barrierDao.getAllFlow()
         .stateIn(
@@ -17,6 +27,53 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    private val _currentLocation = MutableStateFlow<LatLng?>(null)
+    val currentLocation: StateFlow<LatLng?> = _currentLocation.asStateFlow()
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            val loc = locationResult.lastLocation
+            Log.d(TAG, "onLocationResult: $loc")
+            loc?.let {
+                _currentLocation.value = LatLng(it.latitude, it.longitude)
+            }
+        }
+    }
+
+    init {
+        startLocationUpdates()
+    }
+
+    fun startLocationUpdates() {
+        Log.d(TAG, "startLocationUpdates requested")
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L)
+            .build()
+
+        try {
+            // Also try to get the very last known location immediately
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                Log.d(TAG, "Initial lastLocation: $loc")
+                loc?.let {
+                    _currentLocation.value = LatLng(it.latitude, it.longitude)
+                }
+            }
+
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+            Log.d(TAG, "requestLocationUpdates started")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException: No location permission", e)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
 
     fun seedDatabaseIfNeeded(
         shortName: String,
