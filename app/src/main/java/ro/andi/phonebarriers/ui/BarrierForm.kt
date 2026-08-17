@@ -27,10 +27,15 @@ fun BarrierForm(
 ) {
     var shortName by remember { mutableStateOf(barrier?.shortName ?: "") }
     var description by remember { mutableStateOf(barrier?.description ?: "") }
-    var color by remember { mutableStateOf(barrier?.color ?: Color.Red.toArgb()) }
+    var color by remember { mutableStateOf(barrier?.color ?: ColorValues().randomOrNull()?.toArgb() ?: Color.Red.toArgb()) }
     var phoneTo by remember { mutableStateOf(barrier?.phoneNumberTo ?: "") }
     var phoneFrom by remember { mutableStateOf(barrier?.phoneNumberFrom ?: "") }
     var latitude by remember { mutableStateOf(barrier?.latitude ?: (currentLocation?.latitude ?: 0.0) ) }
+
+    var shortNameError by remember { mutableStateOf(false) }
+    var descriptionError by remember { mutableStateOf(false) }
+    var phoneToError by remember { mutableStateOf(false) }
+    var phoneFromError by remember { mutableStateOf(false) }
     var longitude by remember { mutableStateOf(barrier?.longitude ?: (currentLocation?.longitude ?: 45.0) ) }
     var radius by remember { mutableStateOf(barrier?.radius ?: 50f) }
     var hasOptedAutoTrigger by remember { mutableStateOf(barrier?.hasOptedAutoTrigger ?: false) }
@@ -68,11 +73,51 @@ fun BarrierForm(
     ) {
         Text("Barrier Info" + " (id: ${barrier?.id?:"0"})", style = MaterialTheme.typography.titleLarge)
 
-        OutlinedTextField(value = shortName, onValueChange = { shortName = it }, label = { Text("Short Name") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = shortName,
+            onValueChange = {
+                shortName = it
+                if (shortNameError) shortNameError = it.isBlank()
+            },
+            label = { Text("Short Name") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = shortNameError,
+            supportingText = { if (shortNameError) Text("Short Name is required") }
+        )
+        OutlinedTextField(
+            value = description,
+            onValueChange = {
+                description = it
+                if (descriptionError) descriptionError = it.isBlank()
+            },
+            label = { Text("Description") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = descriptionError,
+            supportingText = { if (descriptionError) Text("Description is required") }
+        )
         ColorInput(label = "Color:", selectedColor = color, onColorSelected = { color = it })
-        OutlinedTextField(value = phoneTo, onValueChange = { phoneTo = it }, label = { Text("Barrier Phone Number (To)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = phoneFrom, onValueChange = { phoneFrom = it }, label = { Text("Caller Phone Number (From)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = phoneTo,
+            onValueChange = {
+                phoneTo = it
+                if (phoneToError) phoneToError = it.isBlank()
+            },
+            label = { Text("Barrier Phone Number (To)") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = phoneToError,
+            supportingText = { if (phoneToError) Text("Barrier phone number is required") }
+        )
+        OutlinedTextField(
+            value = phoneFrom,
+            onValueChange = {
+                phoneFrom = it
+                if (phoneFromError) phoneFromError = it.isBlank()
+            },
+            label = { Text("Caller Phone Number (From)") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = phoneFromError,
+            supportingText = { if (phoneFromError) Text("Caller phone number is required") }
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -158,24 +203,31 @@ fun BarrierForm(
             TextButton(onClick = onCancel) { Text("Cancel") }
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
-                onSave(
-                    Barrier(
-                        id = barrier?.id ?: 0,
-                        shortName = shortName,
-                        description = description,
-                        color = color,
-                        phoneNumberTo = phoneTo,
-                        phoneNumberFrom = phoneFrom,
-                        latitude = latitude,
-                        longitude = longitude,
-                        radius = radius,
-                        hasOptedAutoTrigger = hasOptedAutoTrigger,
-                        isEnabledAutoTrigger = barrier?.isEnabledAutoTrigger ?: true,
-                        countLift = barrier?.countLift ?: 0,
-                        countLiftNLearn = barrier?.countLiftNLearn ?: 0,
-                        countAutoTriggered = barrier?.countAutoTriggered ?: 0
+                shortNameError = shortName.isBlank()
+                descriptionError = description.isBlank()
+                phoneToError = phoneTo.isBlank()
+                phoneFromError = phoneFrom.isBlank()
+
+                if (!shortNameError && !descriptionError && !phoneToError && !phoneFromError) {
+                    onSave(
+                        Barrier(
+                            id = barrier?.id ?: 0,
+                            shortName = shortName,
+                            description = description,
+                            color = color,
+                            phoneNumberTo = phoneTo,
+                            phoneNumberFrom = phoneFrom,
+                            latitude = latitude,
+                            longitude = longitude,
+                            radius = radius,
+                            hasOptedAutoTrigger = hasOptedAutoTrigger,
+                            isEnabledAutoTrigger = barrier?.isEnabledAutoTrigger ?: true,
+                            countLift = barrier?.countLift ?: 0,
+                            countLiftNLearn = barrier?.countLiftNLearn ?: 0,
+                            countAutoTriggered = barrier?.countAutoTriggered ?: 0
+                        )
                     )
-                )
+                }
             }) {
                 Text("Save")
             }

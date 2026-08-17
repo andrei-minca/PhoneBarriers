@@ -7,20 +7,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import ro.andi.phonebarriers.R
 import ro.andi.phonebarriers.data.Barrier
 
 @Composable
@@ -79,20 +79,15 @@ fun BarrierListItem(
             title = { Text(if (isInsideRadius) "Inside Radius" else "Outside Radius") },
             text = {
                 if (isInsideRadius) {
-                    Text("You are inside the radius (${distance.toInt()}m). Proceed with Lift & Learn?")
+                    Text("You are inside the radius (${distance.toInt()}m).\nLift was triggered!")
                 } else {
-                    Text("You are outside the radius (${if (currentLocation == null) "Unknown" else "${distance.toInt()}m"}). You must be within ${barrier.radius.toInt()}m to use Lift & Learn.")
+                    Text("You are outside the radius (${if (currentLocation == null) "Unknown" else "${distance.toInt()}m"}).\nYou must be within ${barrier.radius.toInt()}m to use Lift & Learn.")
                 }
             },
             confirmButton = {
                 if (isInsideRadius) {
-                    TextButton(
-                        onClick = {
-                            showLiftNLearnDialog = false
-                            onLiftNLearn()
-                        }
-                    ) {
-                        Text("Lift")
+                    TextButton(onClick = { showLiftNLearnDialog = false }) {
+                        Text("OK")
                     }
                 } else {
                     TextButton(onClick = { showLiftNLearnDialog = false }) {
@@ -102,9 +97,9 @@ fun BarrierListItem(
             },
             dismissButton = {
                 if (isInsideRadius) {
-                    TextButton(onClick = { showLiftNLearnDialog = false }) {
-                        Text("Cancel")
-                    }
+//                    TextButton(onClick = { showLiftNLearnDialog = false }) {
+//                        Text("Cancel")
+//                    }
                 }
             }
         )
@@ -161,7 +156,7 @@ fun BarrierListItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1.2f)) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Barrier : ${barrier.phoneNumberTo}", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("Caller  : ${barrier.phoneNumberFrom}", style = MaterialTheme.typography.bodyMedium)
@@ -171,8 +166,12 @@ fun BarrierListItem(
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
                     Text("Lift", style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -189,7 +188,7 @@ fun BarrierListItem(
                         modifier = Modifier
                             .height(150.dp)
                             .border(1.dp, Color.Gray, RoundedCornerShape(8.dp))
-                            .weight(1.2f)
+                            .weight(1f)
                     )
                     {
                         val cameraPositionState = rememberCameraPositionState {
@@ -233,15 +232,28 @@ fun BarrierListItem(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { showLiftNLearnDialog = true },
+                            onClick = {
+                                showLiftNLearnDialog = true
+                                if (isInsideRadius) { onLiftNLearn() }
+                                      },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isInsideRadius) Color(0xFF0088FF) else Color.Gray
                             )
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Icon(
+                                painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
                             Text("Lift & Learn", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                painter = painterResource(id = R.drawable.sv_fontawesome_brain_solid_full),
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }

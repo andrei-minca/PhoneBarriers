@@ -18,13 +18,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
-@Composable
-fun ColorPicker(
-    selectedColor: Color,
-    onColorSelected: (Color) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val colors = listOf(
+fun ColorValues(): List<Color> {
+    return listOf(
         Color(0xFFFF0000), // Red
         Color(0xFFFF4500), // OrangeRed
         Color(0xFFFFA500), // Orange
@@ -42,6 +37,15 @@ fun ColorPicker(
         Color(0xFF808080), // Gray
         Color(0xFFFFFFFF), // White
     )
+}
+
+@Composable
+fun ColorPicker(
+    selectedColor: Color,
+    onColorSelected: (Color) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = ColorValues()
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
