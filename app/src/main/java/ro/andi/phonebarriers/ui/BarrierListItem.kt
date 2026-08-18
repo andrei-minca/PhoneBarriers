@@ -79,15 +79,18 @@ fun BarrierListItem(
             title = { Text(if (isInsideRadius) "Inside Radius" else "Outside Radius") },
             text = {
                 if (isInsideRadius) {
-                    Text("You are inside the radius (${distance.toInt()}m).\nLift was triggered!")
+                    Text("You are inside the radius (${distance.toInt()}m).\nLift & Learn can be triggered!")
                 } else {
                     Text("You are outside the radius (${if (currentLocation == null) "Unknown" else "${distance.toInt()}m"}).\nYou must be within ${barrier.radius.toInt()}m to use Lift & Learn.")
                 }
             },
             confirmButton = {
                 if (isInsideRadius) {
-                    TextButton(onClick = { showLiftNLearnDialog = false }) {
-                        Text("OK")
+                    TextButton(onClick = {
+                        showLiftNLearnDialog = false
+                        onLiftNLearn()
+                    }) {
+                        Text("Lift")
                     }
                 } else {
                     TextButton(onClick = { showLiftNLearnDialog = false }) {
@@ -97,9 +100,9 @@ fun BarrierListItem(
             },
             dismissButton = {
                 if (isInsideRadius) {
-//                    TextButton(onClick = { showLiftNLearnDialog = false }) {
-//                        Text("Cancel")
-//                    }
+                    TextButton(onClick = { showLiftNLearnDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             }
         )
@@ -232,10 +235,7 @@ fun BarrierListItem(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = {
-                                showLiftNLearnDialog = true
-                                if (isInsideRadius) { onLiftNLearn() }
-                                      },
+                            onClick = { showLiftNLearnDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isInsideRadius) Color(0xFF0088FF) else Color.Gray
