@@ -19,6 +19,9 @@ interface MotionDao {
     @Query("SELECT * FROM motion_data ORDER BY timestamp ASC")
     suspend fun getData(): List<MotionPoint>
 
+    @Query("SELECT * FROM motion_data WHERE barrierId IS NOT NULL ORDER BY timestamp ASC")
+    suspend fun getPointsWithBarrier(): List<MotionPoint>
+
     @Query("UPDATE motion_data SET sessionId = :sessionId, barrierId = :barrierId WHERE sessionId IS NULL AND timestamp > :threshold")
     suspend fun tagRecentPoints(sessionId: Long, barrierId: Int, threshold: Long)
 

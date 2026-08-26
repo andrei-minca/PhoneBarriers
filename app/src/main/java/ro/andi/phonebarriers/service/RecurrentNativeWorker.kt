@@ -24,31 +24,41 @@ class RecurrentNativeWorker(
         Log.d("RecurrentNativeWorker", "Starting recurrent background task...")
 
         val db = AppDatabase.getDatabase(applicationContext)
-        val allPoints = db.motionDao().getData()
+        val allPoints = db.motionDao().getPointsWithBarrier()
 
-        // Group points by barrierId.
-        // Note: barrierId is nullable in the entity, but for classification
-        // we only care about tagged points.
-        val groups = allPoints.filter { it.barrierId != null }.groupBy { it.barrierId }
+        if (allPoints.isEmpty()) {
+            Log.d("RecurrentNativeWorker", "No points with barrierId found, finishing.")
+            return Result.success()
+        }
+
+        val groups = allPoints.groupBy { it.barrierId }
 
         Log.d("RecurrentNativeWorker", "Found data for ${groups.size} barriers")
 
         groups.forEach { (barrierId, points) ->
+            if (isStopped) {
+                Log.d("RecurrentNativeWorker", "Worker stopped, cancelling processing.")
+                return Result.retry()
+            }
             if (barrierId == null) return@forEach
 
             Log.d("RecurrentNativeWorker", "Processing barrier $barrierId with ${points.size} points")
 
-            val resultArray = points.toTypedArray()
-            val classifyResult = withContext(Dispatchers.Default) {
-                NativeLib.dtwClassifyAndFindMedoidsForPathsAndAnchors(resultArray)
+            try {
+                val resultArray = points.toTypedArray()
+                val classifyResult = withContext(Dispatchers.Default) {
+                    NativeLib.dtwClassifyAndFindMedoidsForPathsAndAnchors(resultArray)
+                }
+
+                Log.d("RecurrentNativeWorker",
+                    "C++ processed ${points.size} points for barrier $barrierId " +
+                            "and resulted with: $classifyResult")
+
+                // Send notification for this barrier
+                showResultNotification(barrierId, classifyResult)
+            } catch (e: Exception) {
+                Log.e("RecurrentNativeWorker", "Error processing barrier $barrierId", e)
             }
-
-            Log.d("RecurrentNativeWorker",
-                "C++ processed ${points.size} points for barrier $barrierId " +
-                        "and resulted with: $classifyResult")
-
-            // Send notification for this barrier
-            showResultNotification(barrierId, classifyResult)
         }
 
         return Result.success()

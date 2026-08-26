@@ -13,6 +13,16 @@
 
 #define LOG_TAG "NativeLib"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+bool checkJniException(JNIEnv* env) {
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return true;
+    }
+    return false;
+}
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_ro_andi_phonebarriers_NativeLib_stringFromJNI(
@@ -40,12 +50,16 @@ struct MotionPoint {
 std::vector<MotionPoint> convertJavaArrayToNativePoints(JNIEnv* env, jobjectArray points) {
 
     jsize len = env->GetArrayLength(points);
-
     std::vector<MotionPoint> nativePoints;
+    if (len == 0) return nativePoints;
+
     nativePoints.reserve(len);
 
     jobject firstPoint = env->GetObjectArrayElement(points, 0);
+    if (!firstPoint) return nativePoints;
+
     jclass cls = env->GetObjectClass(firstPoint);
+    if (!cls) return nativePoints;
 
     jfieldID idField = env->GetFieldID(cls, "id", "I");
     jfieldID sessionIdField = env->GetFieldID(cls, "sessionId", "Ljava/lang/Long;");
@@ -58,14 +72,25 @@ std::vector<MotionPoint> convertJavaArrayToNativePoints(JNIEnv* env, jobjectArra
     jfieldID accelerationField = env->GetFieldID(cls, "acceleration", "F");
     jfieldID barrierIdField = env->GetFieldID(cls, "barrierId", "Ljava/lang/Integer;");
 
+    if (checkJniException(env)) {
+        LOGE("Failed to get field IDs");
+        return nativePoints;
+    }
+
     jclass longCls = env->FindClass("java/lang/Long");
-    jmethodID longValueMethod = env->GetMethodID(longCls, "longValue", "()J");
+    jmethodID longValueMethod = longCls ? env->GetMethodID(longCls, "longValue", "()J") : nullptr;
 
     jclass intCls = env->FindClass("java/lang/Integer");
-    jmethodID intValueMethod = env->GetMethodID(intCls, "intValue", "()I");
+    jmethodID intValueMethod = intCls ? env->GetMethodID(intCls, "intValue", "()I") : nullptr;
+
+    if (!longCls || !longValueMethod || !intCls || !intValueMethod) {
+        LOGE("Failed to find Long/Integer class or method");
+        return nativePoints;
+    }
 
     for (int i = 0; i < len; i++) {
         jobject pObj = env->GetObjectArrayElement(points, i);
+        if (!pObj) continue;
 
         MotionPoint mp {};
         mp.id = env->GetIntField(pObj, idField);
@@ -383,33 +408,33 @@ mapSid2NormPointType normalizeSessions(const mapSid2RelPointType & relativeSessi
         {
             {
                 auto maxPoint =
-                        std::min_element(pair.second.begin(), pair.second.end(),
+                        std::max_element(pair.second.begin(), pair.second.end(),
                                          [](const auto& v1, const auto& v2)
-                                         {return v1.distance > v2.distance;});
+                                         {return v1.distance < v2.distance;});
                 if (maxPoint->distance > pointOfMaxs.distance) pointOfMaxs.distance = maxPoint->distance;
             }
 
             {
                 auto maxPoint =
-                        std::min_element(pair.second.begin(), pair.second.end(),
+                        std::max_element(pair.second.begin(), pair.second.end(),
                                          [](const auto& v1, const auto& v2)
-                                         {return v1.deltaHeading > v2.deltaHeading;});
+                                         {return v1.deltaHeading < v2.deltaHeading;});
                 if (maxPoint->deltaHeading > pointOfMaxs.deltaHeading) pointOfMaxs.deltaHeading = maxPoint->deltaHeading;
             }
 
             {
                 auto maxPoint =
-                        std::min_element(pair.second.begin(), pair.second.end(),
+                        std::max_element(pair.second.begin(), pair.second.end(),
                                          [](const auto& v1, const auto& v2)
-                                         {return v1.speed > v2.speed;});
+                                         {return v1.speed < v2.speed;});
                 if (maxPoint->speed > pointOfMaxs.speed) pointOfMaxs.speed = maxPoint->speed;
             }
 
             {
                 auto maxPoint =
-                        std::min_element(pair.second.begin(), pair.second.end(),
+                        std::max_element(pair.second.begin(), pair.second.end(),
                                          [](const auto& v1, const auto& v2)
-                                         {return v1.acceleration > v2.acceleration;});
+                                         {return v1.acceleration < v2.acceleration;});
                 if (maxPoint->acceleration > pointOfMaxs.acceleration) pointOfMaxs.acceleration = maxPoint->acceleration;
             }
         }
@@ -645,7 +670,10 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     jsize len = env->GetArrayLength(points);
     LOGD("Processing %d motion points in C++", len);
 
-    if (len == 0) return env->NewStringUTF("{}");
+    if (len == 0) {
+        LOGD("No points to process.");
+        return env->NewStringUTF("{}");
+    }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // convert to native points
@@ -666,12 +694,22 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
         }
     }
 
+    if (sessionMap.empty()) {
+        LOGD("No unique sessions after conversion to native points!");
+        return env->NewStringUTF("{}");
+    }
+
     LOGD("Converted to native points. Found %zu unique sessions.", sessionMap.size());
 
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // cleaning and filtering (on session map)
     auto cleanedSessionMap = cleanAndFilterSessions(sessionMap);
+
+    if (cleanedSessionMap.empty()) {
+        LOGD("No clean sessions after cleaning and filtering of native points!");
+        return env->NewStringUTF("{}");
+    }
 
     LOGD("Cleaned and filtered native points. Observed %zu clean sessions.", cleanedSessionMap.size());
 
@@ -748,13 +786,15 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     clusterAssignments += ']';
     //
     std::string cluster2sessionIdx = "[";
-    for (size_t i = 1; i < clusterCount+1; ++i) {
-        cluster2sessionIdx += "{" + std::to_string(i) + ":";
+    for (size_t i = 1; i < (size_t)clusterCount + 1; ++i) {
+        cluster2sessionIdx += "{\"" + std::to_string(i) + "\":";
         cluster2sessionIdx += '[';
+        bool first = true;
         for (size_t j = 0; j < sids.size(); ++j) {
-            if (clusterLabels[j] == i) {
+            if ((size_t)clusterLabels[j] == i) {
+                if (!first) cluster2sessionIdx += ',';
                 cluster2sessionIdx += std::to_string(j);
-                if (j < sids.size() - 1) cluster2sessionIdx += ',';
+                first = false;
             }
         }
         cluster2sessionIdx += "]}";
