@@ -26,12 +26,17 @@
         android:icon="@drawable/sv_fontawesome_road_barrier_s_f"
         android:roundIcon="@drawable/sv_fontawesome_road_barrier_s_f">
 
-        <activity android:name=".BarrierManagementActivity"
-            android:exported="true">
+        <activity android:name=".LauncherActivity"
+            android:exported="true"
+            android:theme="@style/Theme.PhoneBarriers">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity android:name=".BarrierManagementActivity"
+            android:exported="true">
         </activity>
 
         <activity android:name=".AdminActivity"

@@ -6,6 +6,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import ro.andi.phonebarriers.data.AppPreferences
+import ro.andi.phonebarriers.service.RecurrentNativeWorker
 import java.util.concurrent.TimeUnit
 
 class PBApp : Application() {

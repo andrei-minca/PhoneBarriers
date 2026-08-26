@@ -239,7 +239,7 @@ class TrackingService : Service(), SensorEventListener {
             ETypeSampling.Sleep -> {
 
                 if (isAutoSleepTime()) {
-                    ETypeSampling.Sleep
+                    ETypeSampling.AutoSleep
                 } else {
                     ETypeSampling.Active
                 }

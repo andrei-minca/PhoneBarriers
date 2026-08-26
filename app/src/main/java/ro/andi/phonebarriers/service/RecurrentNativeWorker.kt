@@ -1,17 +1,19 @@
-package ro.andi.phonebarriers
+package ro.andi.phonebarriers.service
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ro.andi.phonebarriers.NativeLib
+import ro.andi.phonebarriers.R
 import ro.andi.phonebarriers.data.AppDatabase
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 
 class RecurrentNativeWorker(
     context: Context,
@@ -23,9 +25,9 @@ class RecurrentNativeWorker(
 
         val db = AppDatabase.getDatabase(applicationContext)
         val allPoints = db.motionDao().getData()
-        
-        // Group points by barrierId. 
-        // Note: barrierId is nullable in the entity, but for classification 
+
+        // Group points by barrierId.
+        // Note: barrierId is nullable in the entity, but for classification
         // we only care about tagged points.
         val groups = allPoints.filter { it.barrierId != null }.groupBy { it.barrierId }
 
@@ -35,7 +37,7 @@ class RecurrentNativeWorker(
             if (barrierId == null) return@forEach
 
             Log.d("RecurrentNativeWorker", "Processing barrier $barrierId with ${points.size} points")
-            
+
             val resultArray = points.toTypedArray()
             val classifyResult = withContext(Dispatchers.Default) {
                 NativeLib.dtwClassifyAndFindMedoidsForPathsAndAnchors(resultArray)
@@ -66,7 +68,7 @@ class RecurrentNativeWorker(
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(applicationContext)) {
-            if (ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) 
+            if (ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED) {
                 // Use barrierId as notification ID so each barrier gets its own entry
                 notify(barrierId + 1000, builder.build())

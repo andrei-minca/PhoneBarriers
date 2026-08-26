@@ -40,27 +40,9 @@ class BarrierManagementActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                val permissionLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissions ->
-                    if (permissions.values.any { it }) {
-                        viewModel.startLocationUpdates()
-                    }
-                }
-
                 LaunchedEffect(Unit) {
-                    val permissions = arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                    val allGranted = permissions.all { ContextCompat.checkSelfPermission(this@BarrierManagementActivity, it) == PackageManager.PERMISSION_GRANTED }
-                    if (!allGranted) {
-                        permissionLauncher.launch(permissions)
-                    } else {
-                        viewModel.startLocationUpdates()
-                    }
+                    viewModel.startLocationUpdates()
                 }
-
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     BarrierManagementScreen(
                         viewModel = viewModel,
