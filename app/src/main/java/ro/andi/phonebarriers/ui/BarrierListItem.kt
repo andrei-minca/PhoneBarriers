@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -238,7 +239,7 @@ fun BarrierListItem(
                             onClick = { showLiftNLearnDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isInsideRadius) Color(0xFF0088FF) else Color.Gray
+                                containerColor = if (isInsideRadius) colorResource(id = R.color.blue_lift_n_learn) else Color.Gray
                             )
                         ) {
                             Icon(

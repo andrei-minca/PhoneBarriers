@@ -12,14 +12,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ro.andi.phonebarriers.data.AppDatabase
+import ro.andi.phonebarriers.data.AppPreferences
+import androidx.core.content.ContextCompat
 
 class CallWidget : AppWidgetProvider() {
 
     private val ACTION_CLICK = "com.yourapp.ACTION_WIDGET_CALL"
 
-    private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_SHORTNAME // or dynamic update if multiple barriers
-
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        val prefs = AppPreferences(context)
+        val barrierName = prefs.getWidgetBarrierName()
+        val barrierColor = prefs.getWidgetBarrierColor()
+
         for (appWidgetId in appWidgetIds) {
 
             val intent = Intent(context, CallWidget::class.java).apply {
@@ -34,8 +38,31 @@ class CallWidget : AppWidgetProvider() {
             )
 
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
-            views.setOnClickPendingIntent(R.id.widget_button, pendingIntent)
-            views.setTextViewText(R.id.widget_tvt, VALUE_BARRIER_NAME.take(9))
+
+            if (barrierName != null) {
+                // InsideABarrierRadius (Enabled state)
+                val blueColor = ContextCompat.getColor(context, R.color.blue_lift_n_learn)
+                val lightGray = ContextCompat.getColor(context, R.color.gray_no_barrier_in_sight)
+                views.setTextViewText(R.id.widget_tvt, barrierName as CharSequence)
+                views.setTextColor(R.id.widget_tvt, blueColor)
+                views.setInt(R.id.widget_border_bg, "setColorFilter", barrierColor)
+                views.setInt(R.id.widget_inner_bg, "setColorFilter", lightGray)
+                views.setOnClickPendingIntent(R.id.widget_button, pendingIntent)
+                views.setBoolean(R.id.widget_button, "setEnabled", true)
+                views.setInt(R.id.widget_icon, "setColorFilter", blueColor)
+                views.setInt(R.id.widget_icon2, "setColorFilter", blueColor)
+            } else {
+                // NoBarrierInSight (Disabled state)
+                views.setTextViewText(R.id.widget_tvt, "No-Barrier")
+                views.setTextColor(R.id.widget_tvt, android.graphics.Color.BLACK)
+                val lightGray = ContextCompat.getColor(context, R.color.gray_no_barrier_in_sight)
+                views.setInt(R.id.widget_border_bg, "setColorFilter", lightGray)
+                views.setInt(R.id.widget_inner_bg, "setColorFilter", lightGray)
+                views.setOnClickPendingIntent(R.id.widget_button, null)
+                views.setBoolean(R.id.widget_button, "setEnabled", false)
+                views.setInt(R.id.widget_icon, "setColorFilter", android.graphics.Color.DKGRAY)
+                views.setInt(R.id.widget_icon2, "setColorFilter", android.graphics.Color.DKGRAY)
+            }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
@@ -46,6 +73,15 @@ class CallWidget : AppWidgetProvider() {
         if (intent.action == ACTION_CLICK) {
             val pendingResult = goAsync() // Crucial for background work in a Receiver
 
+            val prefs = AppPreferences(context)
+            val barrierPhoneTo = prefs.getWidgetBarrierPhoneNumberTo()
+            val barrierPhoneFrom = prefs.getWidgetBarrierPhoneNumberFrom()
+
+            if (barrierPhoneTo == null || barrierPhoneFrom == null) {
+                pendingResult.finish()
+                return
+            }
+
             // 1. Set "Loading" State in Widget
             showAsReady(context,false)
 
@@ -54,8 +90,8 @@ class CallWidget : AppWidgetProvider() {
                 try {
                     // A. Trigger the API/Call
                     CallRepository.triggerOneRing(
-                        CallRepository.KEY_TO,
-                        CallRepository.KEY_FROM
+                        barrierPhoneTo,
+                        barrierPhoneFrom
                     ) { /* handle success/fail if needed */ }
 
                     // B. Tag recent motion points (Same logic as Activity)
@@ -94,6 +130,9 @@ class CallWidget : AppWidgetProvider() {
 
         val appWidgetManager = AppWidgetManager.getInstance(context)
         val thisWidget = ComponentName(context, CallWidget::class.java)
+        val prefs = AppPreferences(context)
+        val barrierName = prefs.getWidgetBarrierName()
+        val barrierColor = prefs.getWidgetBarrierColor()
 
         if (bIsReady) {
 
@@ -109,9 +148,32 @@ class CallWidget : AppWidgetProvider() {
             )
 
             val finalViews = RemoteViews(context.packageName, R.layout.widget_layout)
-            finalViews.setOnClickPendingIntent(R.id.widget_button, pendingIntent)
-            finalViews.setTextViewText(R.id.widget_tvt, VALUE_BARRIER_NAME)
-            finalViews.setBoolean(R.id.widget_button, "setEnabled", true)
+            
+            if (barrierName != null) {
+                // InsideABarrierRadius (Enabled state)
+                val blueColor = ContextCompat.getColor(context, R.color.blue_lift_n_learn)
+                val lightGray = ContextCompat.getColor(context, R.color.gray_no_barrier_in_sight)
+                finalViews.setTextViewText(R.id.widget_tvt, barrierName as CharSequence)
+                finalViews.setTextColor(R.id.widget_tvt, blueColor)
+                finalViews.setInt(R.id.widget_border_bg, "setColorFilter", barrierColor)
+                finalViews.setInt(R.id.widget_inner_bg, "setColorFilter", lightGray)
+                finalViews.setOnClickPendingIntent(R.id.widget_button, pendingIntent)
+                finalViews.setBoolean(R.id.widget_button, "setEnabled", true)
+                finalViews.setInt(R.id.widget_icon, "setColorFilter", blueColor)
+                finalViews.setInt(R.id.widget_icon2, "setColorFilter", blueColor)
+            } else {
+                // NoBarrierInSight (Disabled state)
+                finalViews.setTextViewText(R.id.widget_tvt, "NoBarrierInSight")
+                finalViews.setTextColor(R.id.widget_tvt, android.graphics.Color.BLACK)
+                val lightGrey = android.graphics.Color.parseColor("#CCCCCC")
+                finalViews.setInt(R.id.widget_border_bg, "setColorFilter", lightGrey)
+                finalViews.setInt(R.id.widget_inner_bg, "setColorFilter", lightGrey)
+                finalViews.setOnClickPendingIntent(R.id.widget_button, null)
+                finalViews.setBoolean(R.id.widget_button, "setEnabled", false)
+                finalViews.setInt(R.id.widget_icon, "setColorFilter", android.graphics.Color.DKGRAY)
+                finalViews.setInt(R.id.widget_icon2, "setColorFilter", android.graphics.Color.DKGRAY)
+            }
+            
             finalViews.setViewVisibility(R.id.widget_progress, View.GONE)
 
             appWidgetManager.updateAppWidget(thisWidget, finalViews)
@@ -121,7 +183,15 @@ class CallWidget : AppWidgetProvider() {
 
             val loadingViews = RemoteViews(context.packageName, R.layout.widget_layout)
             loadingViews.setViewVisibility(R.id.widget_progress, View.VISIBLE)
-            loadingViews.setTextViewText(R.id.widget_tvt, VALUE_BARRIER_NAME)
+            if (barrierName != null) {
+                val blueColor = ContextCompat.getColor(context, R.color.blue_lift_n_learn)
+                loadingViews.setTextViewText(R.id.widget_tvt, barrierName as CharSequence)
+                loadingViews.setTextColor(R.id.widget_tvt, blueColor)
+                loadingViews.setInt(R.id.widget_border_bg, "setColorFilter", barrierColor)
+                loadingViews.setInt(R.id.widget_inner_bg, "setColorFilter", android.graphics.Color.parseColor("#333333"))
+                loadingViews.setInt(R.id.widget_icon, "setColorFilter", blueColor)
+                loadingViews.setInt(R.id.widget_icon2, "setColorFilter", blueColor)
+            }
             loadingViews.setBoolean(R.id.widget_button, "setEnabled", false)
             loadingViews.setOnClickPendingIntent(R.id.widget_button, null)
             appWidgetManager.updateAppWidget(thisWidget, loadingViews)

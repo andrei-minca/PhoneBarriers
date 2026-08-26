@@ -34,7 +34,7 @@ fun ColorValues(): List<Color> {
         Color(0xFFFF00FF), // Magenta
         Color(0xFFFF1493), // DeepPink
         Color(0xFF000000), // Black
-        Color(0xFF808080), // Gray
+//        Color(0xFF808080), // Gray
         Color(0xFFFFFFFF), // White
     )
 }

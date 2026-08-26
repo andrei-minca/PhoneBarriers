@@ -1,6 +1,8 @@
 package ro.andi.phonebarriers
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -25,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
+import ro.andi.phonebarriers.data.AppPreferences
 import ro.andi.phonebarriers.data.Barrier
 import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
@@ -114,10 +117,53 @@ fun BarrierManagementScreen(
     onLift: (Barrier) -> Unit,
     onLiftNLearn: (Barrier) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val barriers by viewModel.barriers.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
     var showForm by remember { mutableStateOf(value = false) }
     var editingBarrier by remember { mutableStateOf<Barrier?>(null) }
+
+    val closestBarrier = remember(barriers, currentLocation) {
+        currentLocation?.let { loc ->
+            barriers.filter { barrier ->
+                val results = FloatArray(1)
+                android.location.Location.distanceBetween(
+                    loc.latitude, loc.longitude,
+                    barrier.latitude, barrier.longitude,
+                    results
+                )
+                results[0] <= barrier.radius
+            }.minByOrNull { barrier ->
+                val results = FloatArray(1)
+                android.location.Location.distanceBetween(
+                    loc.latitude, loc.longitude,
+                    barrier.latitude, barrier.longitude,
+                    results
+                )
+                results[0]
+            }
+        }
+    }
+
+    LaunchedEffect(closestBarrier) {
+        val prefs = AppPreferences(context)
+        if (closestBarrier != null) {
+            prefs.setWidgetBarrierInfo(
+                closestBarrier.shortName, closestBarrier.color,
+                closestBarrier.phoneNumberTo, closestBarrier.phoneNumberFrom)
+        } else {
+            prefs.setWidgetBarrierInfo(null)
+        }
+
+        // Trigger widget update
+        val intent = Intent(context, CallWidget::class.java).apply {
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, CallWidget::class.java))
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        }
+        context.sendBroadcast(intent)
+    }
 
     val isShowingForm = showForm || editingBarrier != null
 
