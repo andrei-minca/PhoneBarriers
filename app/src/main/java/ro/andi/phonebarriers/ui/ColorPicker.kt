@@ -29,12 +29,12 @@ fun ColorValues(): List<Color> {
         Color(0xFF00FA9A), // MediumSpringGreen
         Color(0xFF00FFFF), // Cyan
         Color(0xFF00BFFF), // DeepSkyBlue
-        Color(0xFF0000FF), // Blue
+//        Color(0xFF0000FF), // Blue
         Color(0xFF8A2BE2), // BlueViolet
         Color(0xFFFF00FF), // Magenta
         Color(0xFFFF1493), // DeepPink
         Color(0xFF000000), // Black
-//        Color(0xFF808080), // Gray
+        Color(0xFF808080), // Gray
         Color(0xFFFFFFFF), // White
     )
 }

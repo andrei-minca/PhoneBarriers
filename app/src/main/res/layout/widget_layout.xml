@@ -18,7 +18,7 @@
         android:id="@+id/widget_inner_bg"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="3dp"
+        android:layout_margin="5dp"
         android:src="@drawable/widget_rounded_rect"
         android:scaleType="fitXY"
         android:contentDescription="@null" />
