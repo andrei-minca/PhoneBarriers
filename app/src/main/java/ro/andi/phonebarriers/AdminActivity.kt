@@ -157,13 +157,23 @@ class AdminActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.height(96.dp))
 
-                        // --- SHARE CSV BUTTON ---
+                        // --- SHARE CSV BUTTONS ---
                         Button(
                             onClick = { shareSessionCsv(this@AdminActivity) },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
                             Text("Share Trigger Motion Data (CSV)")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { shareMedoidCsv(this@AdminActivity) },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Text("Share Medoid Data (CSV)")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -183,7 +193,7 @@ class AdminActivity : ComponentActivity() {
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
                         ) {
-                            Text("Replace Data from CSV")
+                            Text("Replace Motion Data from CSV")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -289,6 +299,31 @@ class AdminActivity : ComponentActivity() {
         val serviceIntent = Intent(this, PathToBarrierMonitoringService::class.java)
         startForegroundService(serviceIntent)
         isServiceActive = true
+    }
+
+    fun shareMedoidCsv(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val data = AppDatabase.getDatabase(context).medoidDao().getAllMedoids()
+            val csvHeader = "BarrierId,ClusterId,SessionId,Time,Distance,DeltaHeading,Speed,Accel\n"
+            val csvRows = data.joinToString("\n") {
+                "${it.barrierId},${it.clusterId},${it.sessionId}," +
+                        "${it.timestamp}," +
+                        "${it.distance},${it.deltaHeading},${it.speed},${it.acceleration}"
+            }
+
+            val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val dateStr = sdf.format(Date())
+            val file = File(context.cacheDir, "medoid_data_${dateStr}_${System.currentTimeMillis()}.csv")
+            file.writeText(csvHeader + csvRows)
+
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share Medoid Data"))
+        }
     }
 
     fun shareSessionCsv(context: Context) {

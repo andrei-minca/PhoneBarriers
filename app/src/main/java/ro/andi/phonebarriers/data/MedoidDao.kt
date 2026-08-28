@@ -16,6 +16,12 @@ interface MedoidDao {
     @Query("DELETE FROM medoid_points WHERE barrierId = :barrierId")
     suspend fun deleteForBarrier(barrierId: Int)
 
+    @Transaction
+    suspend fun refreshMedoidsForBarrier(barrierId: Int, points: List<MedoidPoint>) {
+        deleteForBarrier(barrierId)
+        insertAll(points)
+    }
+
     @Query("DELETE FROM medoid_points")
     suspend fun clearAll()
 }

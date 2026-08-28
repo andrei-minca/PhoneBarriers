@@ -9,11 +9,13 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ro.andi.phonebarriers.NativeLib
 import ro.andi.phonebarriers.R
 import ro.andi.phonebarriers.data.AppDatabase
+import ro.andi.phonebarriers.data.MedoidPoint
 
 class RecurrentNativeWorker(
     context: Context,
@@ -54,6 +56,9 @@ class RecurrentNativeWorker(
                     "C++ processed ${points.size} points for barrier $barrierId " +
                             "and resulted with: $classifyResult")
 
+                // Save results to MedoidPoint table
+                saveMedoidResults(barrierId, classifyResult)
+
                 // Send notification for this barrier
                 showResultNotification(barrierId, classifyResult)
             } catch (e: Exception) {
@@ -85,4 +90,92 @@ class RecurrentNativeWorker(
             }
         }
     }
+
+    private suspend fun saveMedoidResults(barrierId: Int, jsonResult: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val gson = Gson()
+                val result = gson.fromJson(jsonResult, DtwResultJson::class.java) ?: return@withContext
+
+                val db = AppDatabase.getDatabase(applicationContext)
+                val medoidDao = db.medoidDao()
+
+                val pointsToInsert = mutableListOf<MedoidPoint>()
+
+                // 2. Map medoid points
+                // Invert medoidsSid to have SessionId -> ClusterId
+                val sidToCluster = result.medoidsSid.entries.associate { (clusterStr, sid) ->
+                    sid to (clusterStr.toIntOrNull() ?: 0)
+                }
+
+                result.medoidsRelativePoints.forEach { rp ->
+                    val clusterId = sidToCluster[rp.sessionId] ?: 0
+                    pointsToInsert.add(
+                        MedoidPoint(
+                            barrierId = barrierId,
+                            clusterId = clusterId,
+                            sessionId = rp.sessionId,
+                            timestamp = rp.timestamp,
+                            distance = rp.distance,
+                            deltaHeading = rp.deltaHeading,
+                            speed = rp.speed.toFloat(),
+                            acceleration = rp.acceleration.toFloat()
+                        )
+                    )
+                }
+
+                // 3. Add normalization points (Mins and Maxs)
+                // min: sessionId=0, clusterId=0, timestamp=-1
+                pointsToInsert.add(
+                    MedoidPoint(
+                        barrierId = barrierId,
+                        clusterId = 0,
+                        sessionId = 0,
+                        timestamp = -1,
+                        distance = result.relativePointOfMins.distance,
+                        deltaHeading = result.relativePointOfMins.deltaHeading,
+                        speed = result.relativePointOfMins.speed.toFloat(),
+                        acceleration = result.relativePointOfMins.acceleration.toFloat()
+                    )
+                )
+
+                // max: sessionId=0, clusterId=0, timestamp=1
+                pointsToInsert.add(
+                    MedoidPoint(
+                        barrierId = barrierId,
+                        clusterId = 0,
+                        sessionId = 0,
+                        timestamp = 1,
+                        distance = result.relativePointOfMaxs.distance,
+                        deltaHeading = result.relativePointOfMaxs.deltaHeading,
+                        speed = result.relativePointOfMaxs.speed.toFloat(),
+                        acceleration = result.relativePointOfMaxs.acceleration.toFloat()
+                    )
+                )
+
+                medoidDao.refreshMedoidsForBarrier(barrierId, pointsToInsert)
+                Log.d("RecurrentNativeWorker", "Successfully saved ${pointsToInsert.size} medoid points for barrier $barrierId")
+
+            } catch (e: Exception) {
+                Log.e("RecurrentNativeWorker", "Error parsing or saving medoid results", e)
+            }
+        }
+    }
+
+    // JSON parsing helper classes
+    private data class RelativePointJson(
+        val sessionId: Long,
+        val timestamp: Long,
+        val distance: Double,
+        val deltaHeading: Double,
+        val speed: Double,
+        val acceleration: Double
+    )
+
+    private data class DtwResultJson(
+        val medoidsSid: Map<String, Long>,
+        val medoidsRelativePoints: List<RelativePointJson>,
+        val relativePointOfMins: RelativePointJson,
+        val relativePointOfMaxs: RelativePointJson
+    )
 }
