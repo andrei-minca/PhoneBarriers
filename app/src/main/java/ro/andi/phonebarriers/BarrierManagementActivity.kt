@@ -162,9 +162,10 @@ fun BarrierManagementScreen(
         if (closestBarrier != null) {
             prefs.setWidgetBarrierInfo(
                 closestBarrier.shortName, closestBarrier.color,
-                closestBarrier.phoneNumberTo, closestBarrier.phoneNumberFrom)
+                closestBarrier.phoneNumberTo, closestBarrier.phoneNumberFrom,
+                closestBarrier.id)
         } else {
-            prefs.setWidgetBarrierInfo(null)
+            prefs.setWidgetBarrierInfoToEmpty()
         }
 
         // Trigger widget update

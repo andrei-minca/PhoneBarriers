@@ -33,7 +33,7 @@ class AppPreferences(val context: Context) {
     }
 
 
-    fun getWidgetBarrierId(): Int = sharedPrefs.getInt(KEY_WIDGET_BARRIER_ID, 0)
+    fun getWidgetBarrierId(): Int = sharedPrefs.getInt(KEY_WIDGET_BARRIER_ID, -1)
     fun getWidgetBarrierName(): String? = sharedPrefs.getString(KEY_WIDGET_BARRIER_NAME, null)
     fun getWidgetBarrierColor(): Int = sharedPrefs.getInt(
         KEY_WIDGET_BARRIER_COLOR,
@@ -42,24 +42,24 @@ class AppPreferences(val context: Context) {
     fun getWidgetBarrierPhoneNumberTo(): String? = sharedPrefs.getString(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO, null)
     fun getWidgetBarrierPhoneNumberFrom(): String? = sharedPrefs.getString(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM, null)
 
-    fun setWidgetBarrierInfo(name: String?, color: Int = 0,
-                             phoneNumberTo: String = "", phoneNumberFrom: String = "",
-                             barrierId: Int = 0) {
+    fun setWidgetBarrierInfoToEmpty() {
         sharedPrefs.edit {
-            if (name == null) {
-                remove(KEY_WIDGET_BARRIER_NAME)
-                remove(KEY_WIDGET_BARRIER_COLOR)
-                remove(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO)
-                remove(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM)
-                remove(KEY_WIDGET_BARRIER_ID)
-            }
-            else {
-                putString(KEY_WIDGET_BARRIER_NAME, name)
-                putInt(KEY_WIDGET_BARRIER_COLOR, color)
-                putString(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO, phoneNumberTo)
-                putString(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM, phoneNumberFrom)
-                putInt(KEY_WIDGET_BARRIER_ID, barrierId)
-            }
+            remove(KEY_WIDGET_BARRIER_NAME)
+            remove(KEY_WIDGET_BARRIER_COLOR)
+            remove(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO)
+            remove(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM)
+            remove(KEY_WIDGET_BARRIER_ID)
+        }
+    }
+    fun setWidgetBarrierInfo(name: String, color: Int,
+                             phoneNumberTo: String, phoneNumberFrom: String ,
+                             barrierId: Int) {
+        sharedPrefs.edit {
+            putString(KEY_WIDGET_BARRIER_NAME, name)
+            putInt(KEY_WIDGET_BARRIER_COLOR, color)
+            putString(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO, phoneNumberTo)
+            putString(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM, phoneNumberFrom)
+            putInt(KEY_WIDGET_BARRIER_ID, barrierId)
         }
     }
 

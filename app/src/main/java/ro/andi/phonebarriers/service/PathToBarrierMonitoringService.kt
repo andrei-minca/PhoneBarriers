@@ -359,9 +359,12 @@ class PathToBarrierMonitoringService : Service() {
     private fun updateWidget(barrier: Barrier?) {
         val prefs = AppPreferences(this)
         if (barrier != null) {
-            prefs.setWidgetBarrierInfo(barrier.shortName, barrier.color, barrier.phoneNumberTo, barrier.phoneNumberFrom)
+            prefs.setWidgetBarrierInfo(
+                barrier.shortName, barrier.color,
+                barrier.phoneNumberTo, barrier.phoneNumberFrom,
+                barrier.id)
         } else {
-            prefs.setWidgetBarrierInfo(null)
+            prefs.setWidgetBarrierInfoToEmpty()
         }
         // Notify widget to update
         val intent = Intent(this, CallWidget::class.java).apply {
