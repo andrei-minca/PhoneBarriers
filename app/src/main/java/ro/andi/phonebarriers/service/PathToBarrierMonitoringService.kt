@@ -175,6 +175,9 @@ class PathToBarrierMonitoringService : Service() {
         startLocationUpdates()
         startAccelerometer()
 
+        // remove unallocated points older than 1 minute
+        AppDatabase.getDatabase(this).motionDao().cleanOldUnusedData(System.currentTimeMillis() - 60000)
+
         val last30Points = mutableListOf<MotionPoint>()
         
         while (currentState == State.ACTIVE) {
@@ -234,6 +237,9 @@ class PathToBarrierMonitoringService : Service() {
         Log.d(TAG, "[LIGHT-SLEEP] Sleeping...")
         stopLocationUpdates()
         stopAccelerometer()
+
+        // remove unallocated points older than 1 minute
+        AppDatabase.getDatabase(this).motionDao().cleanOldUnusedData(System.currentTimeMillis() - 60000)
         
         while (currentState == State.LIGHT_SLEEP) {
             yield()
@@ -270,6 +276,9 @@ class PathToBarrierMonitoringService : Service() {
         Log.d(TAG, "[DEEP-SLEEP] Deep sleeping...")
         stopLocationUpdates()
         stopAccelerometer()
+
+        // remove unallocated points older than 1 minute
+        AppDatabase.getDatabase(this).motionDao().cleanOldUnusedData(System.currentTimeMillis() - 60000)
         
         while (currentState == State.DEEP_SLEEP) {
             yield()
