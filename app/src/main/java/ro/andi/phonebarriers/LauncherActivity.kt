@@ -168,24 +168,43 @@ fun LauncherScreen(onPermissionsGranted: () -> Unit) {
 
 /*
     a new path-to-barrier-monitoring service:
-        - started in the background if at least one barrier has auto-trigger opted
-        - [STARTING] it collects speed for 5 seconds at 1Hz
-            and checks if in range to reach any barrier's radius at 2x the maximum speed collected.
+        - starting in the background :
+            - when the app starts and if at least one barrier has auto-trigger opted
+            - when barriers are added or modified, and the number of barriers with auto-trigger opted jumps from 0 to 1
+        - stoping:
+            - if the barriers are modified and no barrier has auto-trigger opted
+            - from the notification 'Stop' button
+            - from the 'Close Monitoring Service' button in AdminActivity
+        - [STARTING] it collects data (GPS & Speed & Accelerometer) for 5 seconds at 1Hz
+            and then checks if in range to reach in 30 seconds any barrier's radius at 2x the maximum speed collected.
             if in range then transitions to [ACTIVE] state. if not then transitions to [LIGHT-SLEEP] state.
-        - [ACTIVE] it collects data (GPS & Accelerometer) at 1Hz.
-            if in range of any barrier's radius:
-                - activates the widget and fills it with the closest barrier's info.
-                - it checks medoids paths for a match to auto-trigger.
-            if speed and acceleration are 0 for 10 seconds then it transitions to [LIGHT-SLEEP] state.
-            has stop and sleep buttons.
-        - [LIGHT-SLEEP] it sleeps for 10 seconds and then collects speed for 5 seconds at 1Hz
-            and checks if in range to reach any barrier's radius at 2x the maximum speed collected.
-            if in range then transitions to [ACTIVE] state. if not then transitions to [DEEP-SLEEP] state.
-            has stop & wake buttons.
-        - [DEEP-SLEEP] it sleeps for 100 seconds and then collects speed for 5 seconds at 1Hz
-            and checks if in range to reach any barrier's radius at 2x the maximum speed collected.
-            if in range then transitions to [ACTIVE] state. if not then after 30 seconds it registers a significant-motion-sensor.
-            has stop & wake buttons.
+        - [ACTIVE] it collects data (GPS & Speed & Accelerometer) at 1Hz.
+            for each new point collected, it checks if in range of any barrier's radius.
+            if in range of any barrier's radius then updates the widget and fills it with the closest barrier's info.
+            if in range of any barrier's radius and if collected at least 30 points
+                then retrieves & checks each in range barrier's medoids paths for a comparison
+                with the last-30-points path and if a match then it auto-triggers. (TO BE DEFINED in c++ native)
+            if not in range of any barrier's radius then it updates the widget to a NoBarrierInSight state.
+            if not in range to reach in 30 seconds any barrier's radius at 2x the maximum speed collected
+                in the last 5 seconds then it transitions to [LIGHT-SLEEP] state.
+            has 'Stop' and 'Sleep' buttons.
+        - [LIGHT-SLEEP] loops the following:
+            - then collects data for 5 seconds at 1Hz
+            - then checks if in range to reach in 30 seconds any barrier's radius
+                at 2x the maximum speed collected and if in range then transitions to [ACTIVE] state
+            - if not in range but in range to reach in 30 seconds any barrier's radius
+                at 4x the maximum speed collected then remain in [LIGHT-SLEEP] state and sleep for 10 seconds.
+            - if not in range then transitions to [DEEP-SLEEP] state.
+            has 'Stop' & 'Wake' buttons.
+        - [DEEP-SLEEP] loops the following:
+            - collects data for 5 seconds at 1Hz
+            - then checks if in range to reach in 30 seconds any barrier's radius
+                at 4x the maximum speed collected and if in range then transitions to [LIGHT-SLEEP] state.
+            - if not in range then:
+                - if maximum speed is not 0 then remain in [DEEP-SLEEP] state and sleep for 100 seconds.
+                - if maximum speed is 0 then registers a significant-motion-sensor event listener
+                    that will trigger a fresh loop of [DEEP-SLEEP] state.
+            has 'Stop' & 'Wake' buttons.
 
     how can the device's motion wake the service? (SensorEventListener.TYPE_SIGNIFICANT_MOTION)
 

@@ -197,12 +197,15 @@ class PathToBarrierMonitoringService : Service() {
                         closestBarrier = barrier
                     }
                 }
+                Log.d(TAG, "[ACTIVE] distance to barrier: ${distance}m [${barrier.shortName}] [${barrier.id}]")
             }
             
             if (closestBarrier != null) {
+                Log.d(TAG, "[ACTIVE] detected as closest barrier: ${closestBarrier.shortName} [${closestBarrier.id}]")
                 updateWidget(closestBarrier)
                 // if auto trigger is enabled then try to match the path collected with the barrier's medoids
                 if (closestBarrier.isEnabledAutoTrigger && last30Points.size >= 30) {
+                    Log.d(TAG, "[ACTIVE] checking if the case to AUTO-TRIGGER for barrier: ${closestBarrier.shortName} [${closestBarrier.id}]")
                     checkAutoTrigger(closestBarrier, last30Points)
                 }
             } else {
@@ -218,6 +221,9 @@ class PathToBarrierMonitoringService : Service() {
                 Log.d(TAG, "[ACTIVE] In light range, transitioning to [LIGHT-SLEEP] (maxSpeedLast5s: $maxSpeedLast5 m/s)")
                 transitionTo(State.LIGHT_SLEEP)
                 break
+            }
+            else {
+                Log.d(TAG, "[ACTIVE] Still in active range continue looping ... (maxSpeedLast5s: $maxSpeedLast5 m/s)")
             }
             
             delay(1000L)
