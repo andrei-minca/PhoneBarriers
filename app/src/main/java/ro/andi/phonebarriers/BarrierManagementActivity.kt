@@ -54,6 +54,12 @@ class BarrierManagementActivity : ComponentActivity() {
                         },
                         onLift = { barrier ->
                             viewModel.incrementLiftCount(barrier)
+
+                            AppPreferences(this)
+                                .setBarrierIdLastLiftTimestamp(
+                                    barrier.id,
+                                    System.currentTimeMillis())
+
                             // A. Trigger the API/Call (location: anywhere)
                             CallRepository.triggerOneRing(
                                 barrier.phoneNumberTo,
@@ -65,6 +71,12 @@ class BarrierManagementActivity : ComponentActivity() {
                         },
                         onLiftNLearn = { barrier ->
                             viewModel.incrementLiftNLearnCount(barrier)
+
+                            AppPreferences(this)
+                                .setBarrierIdLastLiftTimestamp(
+                                    barrier.id,
+                                    System.currentTimeMillis())
+
                             // A. Trigger the API/Call (location: should be inside radius
                             CallRepository.triggerOneRing(
                                 barrier.phoneNumberTo,

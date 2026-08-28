@@ -375,9 +375,19 @@ class PathToBarrierMonitoringService : Service() {
     private suspend fun checkAutoTrigger(barrier: Barrier, last30Points: List<MotionPoint>) {
         val db = AppDatabase.getDatabase(this)
         val medoids = db.medoidDao().getMedoidsForBarrier(barrier.id)
-        if (medoids.isEmpty()) return
+        if (medoids.isEmpty()) {
+            Log.d(TAG, "No medoids found for barrier: ${barrier.shortName} [${barrier.id}]")
+            return
+        }
 
-        // todo : avoid triggering too many times, like at least 10 seconds between triggers
+        val appPreferences = AppPreferences(this)
+        val lastLiftTimestamp = appPreferences.getBarrierIdLastLiftTimestamp(barrier.id)
+        val nowTimestamp = System.currentTimeMillis()
+        if (lastLiftTimestamp > nowTimestamp - 10000) {
+            Log.d(TAG, "Checking for match & auto-trigger canceled! Barrier already triggered recently, " +
+                    "${barrier.shortName} [${barrier.id}], about ${nowTimestamp - lastLiftTimestamp} ms ago}")
+            return
+        }
         
         val isMatch = withContext(Dispatchers.Default) {
             // todo : review
@@ -385,14 +395,19 @@ class PathToBarrierMonitoringService : Service() {
         }
         
         if (isMatch) {
-            Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName}")
+            Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName} [${barrier.id}]")
 
             db.barrierDao().update(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
+
+            appPreferences.setBarrierIdLastLiftTimestamp(barrier.id, System.currentTimeMillis())
 
             CallRepository.triggerOneRing(
                 barrier.phoneNumberTo,
                 barrier.phoneNumberFrom
             ) { /* handle success/fail if needed */ }
+        }
+        else {
+            Log.d(TAG, "AUTO-TRIGGER not matched for barrier: ${barrier.shortName} [${barrier.id}]")
         }
     }
 

@@ -82,10 +82,12 @@ class CallWidget : AppWidgetProvider() {
                 try {
                     val db = AppDatabase.getDatabase(context)
 
-                    // A.1 update lift-n-learn count
+                    // A.1 update lift-n-learn count & last lift timestamp
                     db.barrierDao().getById(barrierId)?.let { barrier ->
                         db.barrierDao().update(barrier.copy(countLiftNLearn = barrier.countLiftNLearn + 1))
                     }
+
+                    prefs.setBarrierIdLastLiftTimestamp(barrierId, System.currentTimeMillis())
 
                     // A.2 Trigger the API/Call
                     CallRepository.triggerOneRing(

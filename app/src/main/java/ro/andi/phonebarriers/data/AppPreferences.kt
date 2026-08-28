@@ -28,6 +28,7 @@ class AppPreferences(val context: Context) {
         private const val KEY_WIDGET_BARRIER_COLOR = "widget_barrier_color"
         private const val KEY_WIDGET_BARRIER_PHONE_NUMBER_TO = "widget_barrier_phone_number_to"
         private const val KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM = "widget_barrier_phone_number_from"
+        private const val KEY_BARRIER_ID_LAST_LIFT_TIMESTAMP = "barrier_id_last_lift_timestamp"
 
     }
 
@@ -40,7 +41,6 @@ class AppPreferences(val context: Context) {
     )
     fun getWidgetBarrierPhoneNumberTo(): String? = sharedPrefs.getString(KEY_WIDGET_BARRIER_PHONE_NUMBER_TO, null)
     fun getWidgetBarrierPhoneNumberFrom(): String? = sharedPrefs.getString(KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM, null)
-
 
     fun setWidgetBarrierInfo(name: String?, color: Int = 0,
                              phoneNumberTo: String = "", phoneNumberFrom: String = "",
@@ -62,6 +62,12 @@ class AppPreferences(val context: Context) {
             }
         }
     }
+
+    fun getBarrierIdLastLiftTimestamp(barrierId: Int): Long = sharedPrefs.getLong(KEY_BARRIER_ID_LAST_LIFT_TIMESTAMP+barrierId.toString(), 0)
+    fun setBarrierIdLastLiftTimestamp(barrierId: Int, liftTimestamp: Long) {
+        sharedPrefs.edit { putLong(KEY_BARRIER_ID_LAST_LIFT_TIMESTAMP+barrierId.toString(), liftTimestamp) }
+    }
+
 
     fun getActiveHours(): List<Int> {
         val json = sharedPrefs.getString(KEY_ACTIVE_HOURS, null)
