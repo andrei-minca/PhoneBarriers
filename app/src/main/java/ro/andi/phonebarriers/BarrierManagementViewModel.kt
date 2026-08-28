@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.Barrier
+import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
+import android.content.Intent
 
 class BarrierManagementViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "BarrierVM"
@@ -43,6 +45,24 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
 
     init {
         startLocationUpdates()
+        monitorAutoTriggerOpted()
+    }
+
+    private fun monitorAutoTriggerOpted() {
+        barrierDao.getCountAutoTriggerOptedFlow()
+            .distinctUntilChanged()
+            .onEach { count ->
+                Log.d(TAG, "monitorAutoTriggerOpted: $count")
+                val isRunning = Utils.isServiceRunning(getApplication(), PathToBarrierMonitoringService::class.java)
+                if (count > 0 && !isRunning) {
+                    val intent = Intent(getApplication(), PathToBarrierMonitoringService::class.java)
+                    getApplication<Application>().startForegroundService(intent)
+                } else if (count == 0 && isRunning) {
+                    val intent = Intent(getApplication(), PathToBarrierMonitoringService::class.java)
+                    getApplication<Application>().stopService(intent)
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun startLocationUpdates() {

@@ -20,7 +20,7 @@ import ro.andi.phonebarriers.data.MotionPoint
 import ro.andi.phonebarriers.R
 import ro.andi.phonebarriers.data.AppPreferences
 
-class TrackingService : Service(), SensorEventListener {
+class OldTrackingService : Service(), SensorEventListener {
 
     private val VALUE_BARRIER_NAME = BuildConfig.TEST_BARRIER_SHORTNAME // or dynamic update if multiple barriers
 
@@ -49,7 +49,7 @@ class TrackingService : Service(), SensorEventListener {
 
     class ControlReceiver : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
-            val serviceIntent = Intent(context, TrackingService::class.java).apply {
+            val serviceIntent = Intent(context, OldTrackingService::class.java).apply {
                 action = intent.action
             }
             context.startService(serviceIntent)
@@ -338,7 +338,7 @@ class TrackingService : Service(), SensorEventListener {
                     if (countSavedPointsSinceRefresh>120) {
 
                         // remove points older than 1 minute
-                        AppDatabase.getDatabase(this@TrackingService)
+                        AppDatabase.getDatabase(this@OldTrackingService)
                             .motionDao()
                             .cleanOldUnusedData(System.currentTimeMillis() - 60000)
 

@@ -25,7 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import ro.andi.phonebarriers.service.TrackingService
+import ro.andi.phonebarriers.data.AppDatabase
+import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
 
 class LauncherActivity : ComponentActivity() {
 
@@ -50,12 +51,13 @@ class LauncherActivity : ComponentActivity() {
 
     private fun startServiceAndNavigate() {
         lifecycleScope.launch {
-            if (!Utils.isServiceRunning(this@LauncherActivity, TrackingService::class.java)) {
-                val serviceIntent = Intent(this@LauncherActivity, TrackingService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val db = AppDatabase.getDatabase(this@LauncherActivity)
+            val optedCount = db.barrierDao().getCountAutoTriggerOpted()
+            
+            if (optedCount > 0) {
+                if (!Utils.isServiceRunning(this@LauncherActivity, PathToBarrierMonitoringService::class.java)) {
+                    val serviceIntent = Intent(this@LauncherActivity, PathToBarrierMonitoringService::class.java)
                     startForegroundService(serviceIntent)
-                } else {
-                    startService(serviceIntent)
                 }
             }
             delay(500)

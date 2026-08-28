@@ -26,11 +26,10 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ro.andi.phonebarriers.data.AppDatabase
-import ro.andi.phonebarriers.service.TrackingService
+import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -202,7 +201,7 @@ class AdminActivity : ComponentActivity() {
     // Update this state whenever the activity is visible
     override fun onResume() {
         super.onResume()
-        isServiceActive = Utils.isServiceRunning(this,TrackingService::class.java)
+        isServiceActive = Utils.isServiceRunning(this,PathToBarrierMonitoringService::class.java)
     }
 
     private fun checkAndStartPermissions() {
@@ -252,39 +251,42 @@ class AdminActivity : ComponentActivity() {
         }
     }
 
-    private fun performLiftAction() {
-        Log.d("AdminActivity", "Button clicked!")
-        if (isLoading) {
-            Log.w("AdminActivity", "Still performing an action, clicked ignored!")
-            return
-        }
-        isLoading = true // Start loading
-
-        CallRepository.triggerOneRing(
-            CallRepository.KEY_TO,
-            CallRepository.KEY_FROM
-        )
-        { /* handle success/fail if needed */ }
-
-        onTriggerButtonPressed(this@AdminActivity)
-
-        lifecycleScope.launch {
-            delay(5000) // Non-blocking delay
-            isLoading = false
-        }
-    }
+//    private fun performLiftAction() {
+//        Log.d("AdminActivity", "Button clicked!")
+//        if (isLoading) {
+//            Log.w("AdminActivity", "Still performing an action, clicked ignored!")
+//            return
+//        }
+//        isLoading = true // Start loading
+//
+//        CallRepository.triggerOneRing(
+//            CallRepository.KEY_TO,
+//            CallRepository.KEY_FROM
+//        )
+//        { /* handle success/fail if needed */ }
+//
+//        onTriggerButtonPressed(this@AdminActivity)
+//
+//        lifecycleScope.launch {
+//            delay(5000) // Non-blocking delay
+//            isLoading = false
+//        }
+//    }
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == "ACTION_TRIGGER_LIFT") {
-            performLiftAction()
+
             // Clear the action so it doesn't trigger again on rotation
             intent.action = null
+
             Toast.makeText(this, "Triggering Lift from Notification...", Toast.LENGTH_SHORT).show()
+
+            // todo : still keep it?
         }
     }
 
     private fun startTrackingService() {
-        // Start the Tracking Service
-        val serviceIntent = Intent(this, TrackingService::class.java)
+        // Start the Monitoring Service
+        val serviceIntent = Intent(this, PathToBarrierMonitoringService::class.java)
         startForegroundService(serviceIntent)
         isServiceActive = true
     }
@@ -315,25 +317,25 @@ class AdminActivity : ComponentActivity() {
         }
     }
 
-    fun onTriggerButtonPressed(context: Context) {
-        val sessionId = System.currentTimeMillis()
-        val db = AppDatabase.getDatabase(context)
-        val dao = db.motionDao()
-
-        CoroutineScope(Dispatchers.IO).launch {
-            // 1. Tag the 30 points (last 30 seconds) currently in the 'buffer'
-            // We look for points with null sessionIds from the last 30900ms
-            val threshold = System.currentTimeMillis() - 30900
-
-            dao.tagRecentPoints(sessionId, 0, threshold)
-
-            // 2. Optional: Cleanup very old null data to keep the DB small
-            dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
-        }
-    }
+//    fun onTriggerButtonPressed(context: Context) {
+//        val sessionId = System.currentTimeMillis()
+//        val db = AppDatabase.getDatabase(context)
+//        val dao = db.motionDao()
+//
+//        CoroutineScope(Dispatchers.IO).launch {
+//            // 1. Tag the 30 points (last 30 seconds) currently in the 'buffer'
+//            // We look for points with null sessionIds from the last 30900ms
+//            val threshold = System.currentTimeMillis() - 30900
+//
+//            dao.tagRecentPoints(sessionId, 0, threshold)
+//
+//            // 2. Optional: Cleanup very old null data to keep the DB small
+//            dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
+//        }
+//    }
 
     private fun toggleTrackingService() {
-        val serviceIntent = Intent(this, TrackingService::class.java)
+        val serviceIntent = Intent(this, PathToBarrierMonitoringService::class.java)
         if (isServiceActive) {
             stopService(serviceIntent)
             isServiceActive = false

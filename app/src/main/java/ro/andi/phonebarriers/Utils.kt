@@ -9,8 +9,8 @@ import android.content.Context
  */
 object Utils {
     //...
-    fun isServiceRunning(activity: Activity, serviceClass: Class<*>): Boolean {
-        val manager = activity.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+    fun isServiceRunning(context: android.content.Context, serviceClass: Class<*>): Boolean {
+        val manager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {
             if (serviceClass.name == service.service.className) {
                 return true

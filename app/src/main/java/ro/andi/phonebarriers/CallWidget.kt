@@ -67,6 +67,7 @@ class CallWidget : AppWidgetProvider() {
             val prefs = AppPreferences(context)
             val barrierPhoneTo = prefs.getWidgetBarrierPhoneNumberTo()
             val barrierPhoneFrom = prefs.getWidgetBarrierPhoneNumberFrom()
+            val barrierId = prefs.getWidgetBarrierId()
 
             if (barrierPhoneTo == null || barrierPhoneFrom == null) {
                 pendingResult.finish()
@@ -79,25 +80,33 @@ class CallWidget : AppWidgetProvider() {
             // 2. Perform background logic
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    // A. Trigger the API/Call
+                    val db = AppDatabase.getDatabase(context)
+
+                    // A.1 update lift-n-learn count
+                    db.barrierDao().getById(barrierId)?.let { barrier ->
+                        db.barrierDao().update(barrier.copy(countLiftNLearn = barrier.countLiftNLearn + 1))
+                    }
+
+                    // A.2 Trigger the API/Call
                     CallRepository.triggerOneRing(
                         barrierPhoneTo,
                         barrierPhoneFrom
                     ) { /* handle success/fail if needed */ }
 
+
                     // B. Tag recent motion points (Same logic as Activity)
                     run {
                         val sessionId = System.currentTimeMillis()
-                        val db = AppDatabase.getDatabase(context)
                         val dao = db.motionDao()
 
                         // Tag points from the last 30.9 seconds that don't have a sessionId yet
                         val threshold = System.currentTimeMillis() - 30900
-                        dao.tagRecentPoints(sessionId, 0, threshold)
+                        dao.tagRecentPoints(sessionId, barrierId, threshold)
 
                         // Optional: Clean up very old data (> 1 minute)
                         dao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
                     }
+
 
                     // C. Wait for the loading state duration (5 seconds)
                     delay(5000)

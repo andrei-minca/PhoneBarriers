@@ -5,11 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [MotionPoint::class, Barrier::class], version = 7, exportSchema = false)
+@Database(entities = [MotionPoint::class, Barrier::class, MedoidPoint::class], version = 9, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun motionDao(): MotionDao
     abstract fun barrierDao(): BarrierDao
+    abstract fun medoidDao(): MedoidDao
 
     companion object {
         @Volatile

@@ -58,13 +58,12 @@
         </receiver>
 
         <service
-            android:name=".service.TrackingService"
+            android:name=".service.PathToBarrierMonitoringService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
 
-
-        <receiver android:name=".service.TrackingService$ControlReceiver" android:exported="false" />
+        <receiver android:name=".service.PathToBarrierMonitoringService$ControlReceiver" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

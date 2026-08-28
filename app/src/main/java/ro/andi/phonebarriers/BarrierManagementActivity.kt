@@ -69,10 +69,10 @@ class BarrierManagementActivity : ComponentActivity() {
                             CallRepository.triggerOneRing(
                                 barrier.phoneNumberTo,
                                 barrier.phoneNumberFrom) { success ->
-                                runOnUiThread {
-                                    Toast.makeText(this, if (success) "Lift & Lear triggered for ${barrier.shortName}" else "Failed to trigger lift & learn", Toast.LENGTH_SHORT).show()
+                                    runOnUiThread {
+                                        Toast.makeText(this, if (success) "Lift & Lear triggered for ${barrier.shortName}" else "Failed to trigger lift & learn", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
-                            }
                             // B. Tag recent motion points (Same logic as Activity)
                             CoroutineScope(Dispatchers.IO).launch {
                                 run {

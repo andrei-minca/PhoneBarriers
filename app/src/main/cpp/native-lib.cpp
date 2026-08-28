@@ -862,3 +862,13 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
                 "}";
     return env->NewStringUTF(result.c_str());
 }
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_ro_andi_phonebarriers_NativeLib_matchPathWithBarrierMedoids(JNIEnv *env, jobject thiz,
+                                               jobjectArray last30_points,
+                                               jobjectArray medoids) {
+    // TODO: Implement actual DTW path matching logic
+    // For now, return false to avoid accidental triggers
+    return JNI_FALSE;
+}

@@ -13,6 +13,12 @@ interface BarrierDao {
     @Query("SELECT * FROM barriers WHERE id = :id")
     suspend fun getById(id: Int): Barrier?
 
+    @Query("SELECT COUNT(*) FROM barriers WHERE hasOptedAutoTrigger = 1")
+    fun getCountAutoTriggerOptedFlow(): kotlinx.coroutines.flow.Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM barriers WHERE hasOptedAutoTrigger = 1")
+    suspend fun getCountAutoTriggerOpted(): Int
+
     @Insert
     suspend fun insert(barrier: Barrier): Long
 
