@@ -19,9 +19,11 @@ import android.hardware.TriggerEventListener
 import android.location.Location
 import android.os.IBinder
 import android.util.Log
+import java.util.Locale
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.android.gms.location.*
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import ro.andi.phonebarriers.AdminActivity
 import ro.andi.phonebarriers.CallRepository
@@ -39,7 +41,9 @@ class PathToBarrierMonitoringService : Service() {
     companion object {
         private const val TAG = "PathToBarrierService"
         private const val CHANNEL_ID = "monitoring_channel"
+        private const val MATCH_CHANNEL_ID = "match_results_channel"
         private const val NOTIFICATION_ID = 100
+        private const val MATCH_NOTIFICATION_BASE_ID = 2000
         
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_SLEEP = "ACTION_SLEEP"
@@ -401,13 +405,20 @@ class PathToBarrierMonitoringService : Service() {
             return
         }
         
-        val isMatch = withContext(Dispatchers.Default) {
-            // todo : review
+        val matchResultJson = withContext(Dispatchers.Default) {
             NativeLib.matchPathWithBarrierMedoids(last30Points.toTypedArray(), medoids.toTypedArray())
         }
+
+        val gson = Gson()
+        val matchResult = try {
+            gson.fromJson(matchResultJson, MatchResultJson::class.java)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing match result JSON", e)
+            null
+        }
         
-        if (isMatch) {
-            Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName} [${barrier.id}]")
+        if (matchResult?.hasMatch == true) {
+            Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
 
             db.barrierDao().update(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
 
@@ -417,11 +428,44 @@ class PathToBarrierMonitoringService : Service() {
                 barrier.phoneNumberTo,
                 barrier.phoneNumberFrom
             ) { /* handle success/fail if needed */ }
+
+            showMatchNotification(barrier, matchResult, matchResultJson)
         }
         else {
-            Log.d(TAG, "AUTO-TRIGGER not matched for barrier: ${barrier.shortName} [${barrier.id}]")
+            Log.d(TAG, "AUTO-TRIGGER not matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
         }
     }
+
+    private fun showMatchNotification(barrier: Barrier, result: MatchResultJson, rawJson: String) {
+        val builder = NotificationCompat.Builder(this, MATCH_CHANNEL_ID)
+            .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
+            .setContentTitle("Auto-Trigger: ${barrier.shortName}")
+            .setContentText("Match found! Distance: ${String.format(Locale.US, "%.2f", result.bestDistance)}")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "Barrier ID: ${barrier.id}\n" +
+                "Best Medoid Cluster ID: ${result.bestMedoidClusterId}\n" +
+                "Best Medoid Session ID: ${result.bestMedoidSessionId}\n" +
+                "Best Distance: ${result.bestDistance}\n" +
+                "Distances: ${result.distanceToEachMedoid}\n" +
+                "Full Result: $rawJson"
+            ))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        try {
+            NotificationManagerCompat.from(this).notify(MATCH_NOTIFICATION_BASE_ID + barrier.id, builder.build())
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Notification permission missing")
+        }
+    }
+
+    private data class MatchResultJson(
+        val hasMatch: Boolean,
+        val bestDistance: Double,
+        val bestMedoidClusterId: Int,
+        val bestMedoidSessionId: Int,
+        val distanceToEachMedoid: List<List<Double>>
+    )
 
     private fun registerSignificantMotion() {
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)
@@ -460,8 +504,10 @@ class PathToBarrierMonitoringService : Service() {
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(CHANNEL_ID, "Monitoring Service", NotificationManager.IMPORTANCE_LOW)
+        val matchChannel = NotificationChannel(MATCH_CHANNEL_ID, "Auto-Trigger Matches", NotificationManager.IMPORTANCE_HIGH)
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(matchChannel)
     }
 
     private fun createNotification(): Notification {

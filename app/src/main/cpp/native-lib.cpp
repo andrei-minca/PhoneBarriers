@@ -34,6 +34,9 @@ Java_ro_andi_phonebarriers_NativeLib_stringFromJNI(
 
 // ========================================================
 
+double TC1 = 5.2;
+int TS1 = 3;
+
 struct MotionPoint {
     int id{};
     long long sessionId{};
@@ -762,8 +765,6 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // cluster the sessions / runs / time series using DBSCAN with a distance threshold of TC1 (5.2) and a minimum of TS1 (3) samples per cluster
-    double TC1 = 5.2;
-    int TS1 = 3;
     auto clusterLabels = runDbscan(dtwDistanceMatrix, TC1, TS1);
 
     LOGD("Completed DBSCAN clustering.");
@@ -863,12 +864,202 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     return env->NewStringUTF(result.c_str());
 }
 
+struct MedoidPoint {
+    int id{};
+    int barrierId{};
+    int clusterId{};
+    long long sessionId{};
+    long long timestamp{};
+    double distance{};
+    double deltaHeading{};
+    double speed{};
+    double acceleration{};
+};
+
+std::vector<MedoidPoint> convertJavaArrayToMedoidPoints(JNIEnv* env, jobjectArray medoids) {
+    jsize len = env->GetArrayLength(medoids);
+    std::vector<MedoidPoint> nativeMedoids;
+    if (len == 0) return nativeMedoids;
+
+    nativeMedoids.reserve(len);
+
+    jobject firstPoint = env->GetObjectArrayElement(medoids, 0);
+    if (!firstPoint) return nativeMedoids;
+
+    jclass cls = env->GetObjectClass(firstPoint);
+    if (!cls) return nativeMedoids;
+
+    jfieldID idField = env->GetFieldID(cls, "id", "I");
+    jfieldID barrierIdField = env->GetFieldID(cls, "barrierId", "I");
+    jfieldID clusterIdField = env->GetFieldID(cls, "clusterId", "I");
+    jfieldID sessionIdField = env->GetFieldID(cls, "sessionId", "J");
+    jfieldID timestampField = env->GetFieldID(cls, "timestamp", "J");
+    jfieldID distanceField = env->GetFieldID(cls, "distance", "D");
+    jfieldID deltaHeadingField = env->GetFieldID(cls, "deltaHeading", "D");
+    jfieldID speedField = env->GetFieldID(cls, "speed", "F");
+    jfieldID accelerationField = env->GetFieldID(cls, "acceleration", "F");
+
+    if (checkJniException(env)) {
+        LOGE("Failed to get MedoidPoint field IDs");
+        return nativeMedoids;
+    }
+
+    for (int i = 0; i < len; i++) {
+        jobject pObj = env->GetObjectArrayElement(medoids, i);
+        if (!pObj) continue;
+
+        MedoidPoint mp {};
+        mp.id = env->GetIntField(pObj, idField);
+        mp.barrierId = env->GetIntField(pObj, barrierIdField);
+        mp.clusterId = env->GetIntField(pObj, clusterIdField);
+        mp.sessionId = env->GetLongField(pObj, sessionIdField);
+        mp.timestamp = env->GetLongField(pObj, timestampField);
+        mp.distance = env->GetDoubleField(pObj, distanceField);
+        mp.deltaHeading = env->GetDoubleField(pObj, deltaHeadingField);
+        mp.speed = env->GetFloatField(pObj, speedField);
+        mp.acceleration = env->GetFloatField(pObj, accelerationField);
+
+        nativeMedoids.push_back(mp);
+        env->DeleteLocalRef(pObj);
+    }
+
+    env->DeleteLocalRef(firstPoint);
+    env->DeleteLocalRef(cls);
+
+    return nativeMedoids;
+}
+
 extern "C"
-JNIEXPORT jboolean JNICALL
+JNIEXPORT jstring JNICALL
 Java_ro_andi_phonebarriers_NativeLib_matchPathWithBarrierMedoids(JNIEnv *env, jobject thiz,
                                                jobjectArray last30_points,
                                                jobjectArray medoids) {
-    // TODO: Implement actual DTW path matching logic
-    // For now, return false to avoid accidental triggers
-    return JNI_FALSE;
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // 1. Convert input points
+    std::vector<MotionPoint> nativeLast30 = convertJavaArrayToNativePoints(env, last30_points);
+    if (nativeLast30.size() < 2) {
+        return env->NewStringUTF("{\"hasMatch\":false, \"bestDistance\":-1.0, \"bestMedoidClusterId\":-1, \"distanceToEachMedoid\":[]}");
+    }
+
+    // Sort by timestamp just in case
+    std::sort(nativeLast30.begin(), nativeLast30.end(), [](const MotionPoint& a, const MotionPoint& b) {
+        return a.timestamp < b.timestamp;
+    });
+
+    // 2. Transform to relative points
+    std::vector<RelativePoint> relPoints;
+    relPoints.reserve(nativeLast30.size());
+    const auto& target = nativeLast30.back();
+
+    for (size_t i = 0; i < nativeLast30.size(); ++i) {
+        const auto& current = nativeLast30[i];
+        RelativePoint rp;
+        rp.sessionId = current.sessionId;
+        rp.timestamp = current.timestamp;
+        rp.speed = current.speed;
+        rp.acceleration = current.acceleration;
+        rp.distance = calculateHaversineDistanceLLA(current.lat, current.lng, current.alt, target.lat, target.lng, target.alt);
+
+        double currentHeading = 0.0;
+        if (i > 0) {
+            const auto& prev = nativeLast30[i-1];
+            currentHeading = calculateBearing(prev.lat, prev.lng, current.lat, current.lng);
+        } else if (nativeLast30.size() > 1) {
+            const auto& next = nativeLast30[i+1];
+            currentHeading = calculateBearing(current.lat, current.lng, next.lat, next.lng);
+        }
+        rp.deltaHeading = getDeltaHeading(current.lat, current.lng, currentHeading, target.lat, target.lng);
+        relPoints.push_back(rp);
+    }
+
+    // 3. Convert medoids and extract normalization info
+    std::vector<MedoidPoint> nativeMedoids = convertJavaArrayToMedoidPoints(env, medoids);
+    RelativePoint mins, maxs;
+    std::map<int, std::vector<NormPoint>> clusterMedoids;
+
+    for (const auto& mp : nativeMedoids) {
+        if (mp.sessionId == 0) {
+            if (mp.timestamp == -1) {
+                mins.distance = mp.distance;
+                mins.deltaHeading = mp.deltaHeading;
+                mins.speed = mp.speed;
+                mins.acceleration = mp.acceleration;
+            } else if (mp.timestamp == 1) {
+                maxs.distance = mp.distance;
+                maxs.deltaHeading = mp.deltaHeading;
+                maxs.speed = mp.speed;
+                maxs.acceleration = mp.acceleration;
+            }
+        } else {
+            NormPoint np;
+            np.sessionId = mp.sessionId;
+            np.timestamp = mp.timestamp;
+            np.distance = mp.distance;
+            np.deltaHeading = mp.deltaHeading;
+            np.speed = mp.speed;
+            np.acceleration = mp.acceleration;
+            clusterMedoids[mp.clusterId].push_back(np);
+        }
+    }
+
+    // 4. Normalize last30 points
+    std::vector<NormPoint> normLast30;
+    normLast30.reserve(relPoints.size());
+    for (const auto& rp : relPoints) {
+        NormPoint np;
+        np.sessionId = rp.sessionId;
+        np.timestamp = rp.timestamp;
+        np.distance = (rp.distance - mins.distance) / (maxs.distance - mins.distance);
+        np.deltaHeading = (rp.deltaHeading - mins.deltaHeading) / (maxs.deltaHeading - mins.deltaHeading);
+        np.speed = (rp.speed - mins.speed) / (maxs.speed - mins.speed);
+        np.acceleration = (rp.acceleration - mins.acceleration) / (maxs.acceleration - mins.acceleration);
+        normLast30.push_back(np);
+    }
+
+    // 5. Normalize medoid points (they are stored as relative, but not normalized yet)
+    // Actually, looking at RecurrentNativeWorker.kt, it saves distance/deltaHeading/speed/acceleration from RelativePointJson.
+    // So we DO need to normalize them here.
+    for (auto& pair : clusterMedoids) {
+        for (auto& np : pair.second) {
+            np.distance = (np.distance - mins.distance) / (maxs.distance - mins.distance);
+            np.deltaHeading = (np.deltaHeading - mins.deltaHeading) / (maxs.deltaHeading - mins.deltaHeading);
+            np.speed = (np.speed - mins.speed) / (maxs.speed - mins.speed);
+            np.acceleration = (np.acceleration - mins.acceleration) / (maxs.acceleration - mins.acceleration);
+        }
+    }
+
+    // 6. Compute DTW distances
+    double bestDistance = std::numeric_limits<double>::max();
+    int bestMedoidClusterId = -1;
+    long long bestMedoidSessionId = -1;
+    std::string distancesJson = "[";
+
+    for (auto const& [clusterId, medoidPath] : clusterMedoids) {
+        double dist = computeDtwDistance(normLast30, medoidPath);
+        if (dist < bestDistance) {
+            bestDistance = dist;
+            bestMedoidClusterId = clusterId;
+            bestMedoidSessionId = medoidPath[0].sessionId;
+        }
+        distancesJson += "[" + std::to_string(clusterId) + ","
+                + std::to_string(medoidPath[0].sessionId) + ","
+                + std::to_string(dist) + "],";
+    }
+    if (distancesJson.back() == ',') distancesJson.pop_back();
+    distancesJson += ']';
+
+    bool hasMatch = bestDistance < 5.2; // Using the same TC1 threshold from clustering as a baseline
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    std::string result = "{ \"hasMatch\":" + std::string(hasMatch ? "true" : "false") +
+                         ", \"bestDistance\":" + std::to_string(bestDistance) +
+                         ", \"bestMedoidClusterId\":" + std::to_string(bestMedoidClusterId) +
+                         ", \"bestMedoidSessionId\":" + std::to_string(bestMedoidSessionId) +
+                         ", \"distanceToEachMedoid\":" + distancesJson +
+                         ", \"processing_time_ms\":" + std::to_string(duration) + "}";
+
+    return env->NewStringUTF(result.c_str());
 }

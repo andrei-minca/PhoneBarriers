@@ -11,5 +11,5 @@ object NativeLib {
 
     external fun dtwClassifyAndFindMedoidsForPathsAndAnchors(points: Array<MotionPoint>): String
 
-    external fun matchPathWithBarrierMedoids(last30Points: Array<MotionPoint>, medoids: Array<ro.andi.phonebarriers.data.MedoidPoint>): Boolean
+    external fun matchPathWithBarrierMedoids(last30Points: Array<MotionPoint>, medoids: Array<ro.andi.phonebarriers.data.MedoidPoint>): String
 }
