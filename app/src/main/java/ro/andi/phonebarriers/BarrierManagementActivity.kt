@@ -1,16 +1,13 @@
 package ro.andi.phonebarriers
 
-import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +19,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,6 +29,10 @@ import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
 
 class BarrierManagementActivity : ComponentActivity() {
+
+    companion object {
+        const val TAG = "BarrierManagementActivity"
+    }
     private val viewModel: BarrierManagementViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,9 +135,10 @@ fun BarrierManagementScreen(
     var showForm by remember { mutableStateOf(value = false) }
     var editingBarrier by remember { mutableStateOf<Barrier?>(null) }
 
-    val closestBarrier = remember(barriers, currentLocation) {
+    val closestBarrierWithAutoTriggerOpted =
+        remember(barriers, currentLocation) {
         currentLocation?.let { loc ->
-            barriers.filter { barrier ->
+            barriers.filter { it.hasOptedAutoTrigger }.filter { barrier ->
                 val results = FloatArray(1)
                 android.location.Location.distanceBetween(
                     loc.latitude, loc.longitude,
@@ -157,14 +158,16 @@ fun BarrierManagementScreen(
         }
     }
 
-    LaunchedEffect(closestBarrier) {
+    LaunchedEffect(closestBarrierWithAutoTriggerOpted) {
         val prefs = AppPreferences(context)
-        if (closestBarrier != null) {
+        if (closestBarrierWithAutoTriggerOpted != null) {
+            Log.d(BarrierManagementActivity.TAG, "Closest barrier with auto-trigger opted: ${closestBarrierWithAutoTriggerOpted.shortName}")
             prefs.setWidgetBarrierInfo(
-                closestBarrier.shortName, closestBarrier.color,
-                closestBarrier.phoneNumberTo, closestBarrier.phoneNumberFrom,
-                closestBarrier.id)
+                closestBarrierWithAutoTriggerOpted.shortName, closestBarrierWithAutoTriggerOpted.color,
+                closestBarrierWithAutoTriggerOpted.phoneNumberTo, closestBarrierWithAutoTriggerOpted.phoneNumberFrom,
+                closestBarrierWithAutoTriggerOpted.id)
         } else {
+            Log.d(BarrierManagementActivity.TAG, "No closest barrier with auto-trigger opted!")
             prefs.setWidgetBarrierInfoToEmpty()
         }
 

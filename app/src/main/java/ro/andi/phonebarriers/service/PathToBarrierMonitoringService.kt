@@ -132,11 +132,13 @@ class PathToBarrierMonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        super.onDestroy()
+        updateWidget(null)
         serviceScope.cancel()
         stopLocationUpdates()
         stopAccelerometer()
         sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+
+        super.onDestroy()
     }
 
     private fun startMonitoringLoop() {
@@ -404,7 +406,8 @@ class PathToBarrierMonitoringService : Service() {
                     "${barrier.shortName} [${barrier.id}], about ${nowTimestamp - lastLiftTimestamp} ms ago}")
             return
         }
-        
+
+        // try match the path with the medoids
         val matchResultJson = withContext(Dispatchers.Default) {
             NativeLib.matchPathWithBarrierMedoids(last30Points.toTypedArray(), medoids.toTypedArray())
         }
@@ -414,10 +417,10 @@ class PathToBarrierMonitoringService : Service() {
             gson.fromJson(matchResultJson, MatchResultJson::class.java)
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing match result JSON", e)
-            null
+            MatchResultJson.empty
         }
         
-        if (matchResult?.hasMatch == true) {
+        if (matchResult.hasMatch) {
             Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
 
             db.barrierDao().update(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
@@ -433,14 +436,18 @@ class PathToBarrierMonitoringService : Service() {
         }
         else {
             Log.d(TAG, "AUTO-TRIGGER not matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
+
+            showMatchNotification(barrier, matchResult, matchResultJson)
         }
     }
 
     private fun showMatchNotification(barrier: Barrier, result: MatchResultJson, rawJson: String) {
+        val title = if (result.hasMatch) "Auto-Triggered: ${barrier.shortName}" else "No match to auto-trigger: ${barrier.shortName}"
+
         val builder = NotificationCompat.Builder(this, MATCH_CHANNEL_ID)
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
-            .setContentTitle("Auto-Trigger: ${barrier.shortName}")
-            .setContentText("Match found! Distance: ${String.format(Locale.US, "%.2f", result.bestDistance)}")
+            .setContentTitle(title)
+            .setContentText("Best distance: ${String.format(Locale.US, "%.2f", result.bestDistance)}")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
                 "Barrier ID: ${barrier.id}\n" +
                 "Best Medoid Cluster ID: ${result.bestMedoidClusterId}\n" +
@@ -463,9 +470,13 @@ class PathToBarrierMonitoringService : Service() {
         val hasMatch: Boolean,
         val bestDistance: Double,
         val bestMedoidClusterId: Int,
-        val bestMedoidSessionId: Int,
+        val bestMedoidSessionId: Long,
         val distanceToEachMedoid: List<List<Double>>
-    )
+    ) {
+        companion object {
+            val empty = MatchResultJson(false, -1.0, -1, -1L, emptyList())
+        }
+    }
 
     private fun registerSignificantMotion() {
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)
