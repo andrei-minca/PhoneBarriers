@@ -25,6 +25,8 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.android.gms.location.*
 import com.google.gson.Gson
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import ro.andi.phonebarriers.AdminActivity
 import ro.andi.phonebarriers.CallRepository
 import ro.andi.phonebarriers.CallWidget
@@ -47,7 +49,8 @@ class PathToBarrierMonitoringService : Service() {
         
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_SLEEP = "ACTION_SLEEP"
-        const val ACTION_WAKE = "ACTION_WAKE"
+        const val ACTION_WAKE_LIGHT = "ACTION_WAKE_LIGHT"
+        const val ACTION_WAKE_DEEP = "ACTION_WAKE_DEEP"
 
         const val SLOW_WALKING_SPEED = 0.8f //  m/s
         const val SLOW_BIKING_SPEED = 2.0f  //  m/s
@@ -62,7 +65,8 @@ class PathToBarrierMonitoringService : Service() {
     private var currentMaxAccel = 0f
     
     private enum class State { STARTING, ACTIVE, LIGHT_SLEEP, DEEP_SLEEP }
-    private var currentState = State.STARTING
+    private val _currentState = MutableStateFlow(State.STARTING)
+    private val currentState: State get() = _currentState.value
     
     private var isLocationActive = false
     private var isAccelActive = false
@@ -76,9 +80,7 @@ class PathToBarrierMonitoringService : Service() {
     private val significantMotionListener = object : TriggerEventListener() {
         override fun onTrigger(event: TriggerEvent?) {
             Log.d(TAG, "Significant motion detected!")
-            if (currentState == State.DEEP_SLEEP) {
-                startMonitoringLoop() // Restart the loop from deep sleep
-            }
+            transitionTo(State.LIGHT_SLEEP)
         }
     }
 
@@ -126,8 +128,11 @@ class PathToBarrierMonitoringService : Service() {
             ACTION_SLEEP -> {
                 transitionTo(State.LIGHT_SLEEP)
             }
-            ACTION_WAKE -> {
+            ACTION_WAKE_LIGHT -> {
                 transitionTo(State.ACTIVE)
+            }
+            ACTION_WAKE_DEEP -> {
+                transitionTo(State.LIGHT_SLEEP)
             }
         }
         return START_STICKY
@@ -147,8 +152,8 @@ class PathToBarrierMonitoringService : Service() {
 
     private fun startMonitoringLoop() {
         serviceScope.launch {
-            while (isActive) {
-                when (currentState) {
+            _currentState.collectLatest { state ->
+                when (state) {
                     State.STARTING -> handleStarting()
                     State.ACTIVE -> handleActive()
                     State.LIGHT_SLEEP -> handleLightSleep()
@@ -241,7 +246,7 @@ class PathToBarrierMonitoringService : Service() {
                 break
             }
             else {
-                Log.d(TAG, "[ACTIVE] Still in active range continue looping each second ... (maxSpeedLast5s: $maxSpeedLast5 m/s)")
+                Log.d(TAG, "[ACTIVE] Still in active range continue looping ... (maxSpeedLast5s: $maxSpeedLast5 m/s)")
             }
             
             delay(1000L)
@@ -357,9 +362,9 @@ class PathToBarrierMonitoringService : Service() {
     }
 
     private fun transitionTo(newState: State) {
-        if (currentState != newState) {
-            Log.d(TAG, "Transitioning from $currentState to $newState")
-            currentState = newState
+        if (_currentState.value != newState) {
+            Log.d(TAG, "Transitioning from ${_currentState.value} to $newState")
+            _currentState.value = newState
             try {
                 NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, createNotification())
             } catch (e: SecurityException) {
@@ -579,11 +584,16 @@ class PathToBarrierMonitoringService : Service() {
                 val pSleep = PendingIntent.getBroadcast(this, 2, sleepIntent, PendingIntent.FLAG_IMMUTABLE)
                 builder.addAction(android.R.drawable.ic_media_pause, "Sleep", pSleep)
             }
-            State.LIGHT_SLEEP, State.DEEP_SLEEP -> {
-                val wakeIntent = Intent(this, ControlReceiver::class.java).apply { action = ACTION_WAKE }
+            State.LIGHT_SLEEP -> {
+                val wakeIntent = Intent(this, ControlReceiver::class.java).apply { action = ACTION_WAKE_LIGHT }
                 val pWake = PendingIntent.getBroadcast(this, 3, wakeIntent, PendingIntent.FLAG_IMMUTABLE)
                 builder.addAction(android.R.drawable.ic_media_play, "Wake", pWake)
             }
+            State.DEEP_SLEEP -> {
+            val wakeIntent = Intent(this, ControlReceiver::class.java).apply { action = ACTION_WAKE_DEEP }
+            val pWake = PendingIntent.getBroadcast(this, 4, wakeIntent, PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(android.R.drawable.ic_media_play, "Wake", pWake)
+        }
             else -> {}
         }
 
