@@ -88,13 +88,13 @@ class AdminActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Show message from C++ without blocking UI thread
-        lifecycleScope.launch(Dispatchers.Default) {
-            val message = NativeLib.stringFromJNI()
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@AdminActivity, message, Toast.LENGTH_SHORT).show()
-            }
-        }
+//        // Show message from C++ without blocking UI thread
+//        lifecycleScope.launch(Dispatchers.Default) {
+//            val message = NativeLib.stringFromJNI()
+//            withContext(Dispatchers.Main) {
+//                Toast.makeText(this@AdminActivity, message, Toast.LENGTH_SHORT).show()
+//            }
+//        }
 
         // trigger permission request
         checkAndStartPermissions()

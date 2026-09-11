@@ -48,6 +48,10 @@ class PathToBarrierMonitoringService : Service() {
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_SLEEP = "ACTION_SLEEP"
         const val ACTION_WAKE = "ACTION_WAKE"
+
+        const val SLOW_WALKING_SPEED = 0.8f //  m/s
+        const val SLOW_BIKING_SPEED = 2.0f  //  m/s
+        const val SLOW_CAR_SPEED = 4.0f  //  m/s
     }
 
     private lateinit var sensorManager: SensorManager
@@ -206,7 +210,7 @@ class PathToBarrierMonitoringService : Service() {
                         closestBarrier = barrier
                     }
                 }
-                Log.d(TAG, "[ACTIVE] distance to barrier: ${distance}m [${barrier.shortName}] [${barrier.id}]")
+                Log.d(TAG, "[ACTIVE] distance to barrier: ${distance}m [name:${barrier.shortName}] [id:${barrier.id}] [radius:${barrier.radius}m]")
             }
             
             if (closestBarrier != null) {
@@ -231,8 +235,13 @@ class PathToBarrierMonitoringService : Service() {
                 transitionTo(State.LIGHT_SLEEP)
                 break
             }
+            else if (maxSpeedLast5 < SLOW_WALKING_SPEED) {
+                Log.d(TAG, "[ACTIVE] Still in active range but slow moving, transitioning to [LIGHT-SLEEP] (maxSpeedLast5s: $maxSpeedLast5 m/s)")
+                transitionTo(State.LIGHT_SLEEP)
+                break
+            }
             else {
-                Log.d(TAG, "[ACTIVE] Still in active range continue looping ... (maxSpeedLast5s: $maxSpeedLast5 m/s)")
+                Log.d(TAG, "[ACTIVE] Still in active range continue looping each second ... (maxSpeedLast5s: $maxSpeedLast5 m/s)")
             }
             
             delay(1000L)
@@ -252,28 +261,43 @@ class PathToBarrierMonitoringService : Service() {
             startLocationUpdates()
             startAccelerometer()
             val points = collectData(5, 1000L)
-            val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
+            val maxSpeedLast5s = points.maxOfOrNull { it.speed } ?: 0f
             
             val db = AppDatabase.getDatabase(this)
             val barriersWithAutoTriggerOpted = db.barrierDao().getAll().filter { it.hasOptedAutoTrigger }
-            
-            val inRangeActive = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeed, 2f, 30f) }
+
+
+            val inRangeActive = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast5s, 2f, 30f) }
+
             if (inRangeActive) {
-                Log.d(TAG, "[LIGHT-SLEEP] In active range, transitioning to [ACTIVE] (maxSpeedLast5s: $maxSpeed m/s)")
-                transitionTo(State.ACTIVE)
+                if (maxSpeedLast5s < SLOW_WALKING_SPEED) {
+                    Log.d(TAG, "[LIGHT-SLEEP] In active range but slow moving ... (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                }
+                else {
+                    Log.d(TAG, "[LIGHT-SLEEP] In active range and moving, transitioning to [ACTIVE] (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                    transitionTo(State.ACTIVE)
+                    break
+                }
+            }
+
+
+            val inRangeLight = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast5s, 4f, 30f) }
+
+            if (!inRangeLight) {
+                Log.d(TAG, "[LIGHT-SLEEP] In deep range, transitioning to [DEEP-SLEEP] (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                transitionTo(State.DEEP_SLEEP)
                 break
             }
-            
-            val inRangeLight = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeed, 4f, 30f) }
-            if (inRangeLight) {
-                Log.d(TAG, "[LIGHT-SLEEP] Still in light range, sleeping for 10s (maxSpeedLast5s: $maxSpeed m/s)")
+            else if (maxSpeedLast5s < SLOW_BIKING_SPEED) {
+                Log.d(TAG, "[LIGHT-SLEEP] In light range but slow moving, transitioning to [DEEP-SLEEP] (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                transitionTo(State.DEEP_SLEEP)
+                break
+            }
+            else {
+                Log.d(TAG, "[LIGHT-SLEEP] In light range and moving, sleeping for 10s (maxSpeedLast5s: $maxSpeedLast5s m/s)")
                 stopLocationUpdates()
                 stopAccelerometer()
                 delay(10000L)
-            } else {
-                Log.d(TAG, "[LIGHT-SLEEP] In deep range, transitioning to [DEEP-SLEEP] (maxSpeedLast5s: $maxSpeed m/s)")
-                transitionTo(State.DEEP_SLEEP)
-                break
             }
         }
     }
@@ -291,32 +315,43 @@ class PathToBarrierMonitoringService : Service() {
             startLocationUpdates()
             startAccelerometer()
             val points = collectData(5, 1000L)
-            val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
+            val maxSpeedLast5s = points.maxOfOrNull { it.speed } ?: 0f
             
             val db = AppDatabase.getDatabase(this)
             val barriersWithAutoTriggerOpted = db.barrierDao().getAll().filter { it.hasOptedAutoTrigger }
-            
-            val inRangeLight = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeed, 4f, 30f) }
+
+
+            val inRangeLight = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast5s, 4f, 30f) }
+
             if (inRangeLight) {
-                transitionTo(State.LIGHT_SLEEP)
-                break
+                if (maxSpeedLast5s < SLOW_BIKING_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] In light range but slow moving ... (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                }
+                else {
+                    Log.d(TAG, "[DEEP-SLEEP] In light range and moving, transitioning to [LIGHT_SLEEP] (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                    transitionTo(State.LIGHT_SLEEP)
+                    break
+                }
             }
 
-            val inRangeDeep = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeed, 8f, 30f) }
-            val secondsToSleep = if (inRangeDeep) 30 else 90
-            
-            if (maxSpeed > 0.1f) {
-                Log.d(TAG, "[DEEP-SLEEP] Moving but not in range, sleeping for ${secondsToSleep}s (maxSpeedLast5s: $maxSpeed m/s)")
-                stopLocationUpdates()
-                stopAccelerometer()
-                delay(secondsToSleep*1000L)
-            } else {
-                Log.d(TAG, "[DEEP-SLEEP] Not moving, waiting for significant motion")
+            val inRangeDeep = barriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast5s, 8f, 30f) }
+
+            if (!inRangeDeep || (maxSpeedLast5s < SLOW_CAR_SPEED)) {
+                Log.d(TAG, "[DEEP-SLEEP] Outside of deep range or slow moving, waiting for significant motion")
                 stopLocationUpdates()
                 stopAccelerometer()
                 registerSignificantMotion()
                 suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled or triggered */ }
-                break 
+                break
+            }
+            else {
+                val secondsToSleep = if (inRangeDeep) 30 else 90
+
+                if (inRangeDeep) Log.d(TAG, "[DEEP-SLEEP] In deep range, sleeping for ${secondsToSleep}s (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                else Log.d(TAG, "[DEEP-SLEEP] Outside of deep range, sleeping for ${secondsToSleep}s (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                stopLocationUpdates()
+                stopAccelerometer()
+                delay(secondsToSleep*1000L)
             }
         }
     }
@@ -353,6 +388,7 @@ class PathToBarrierMonitoringService : Service() {
             speed = lastLocation?.speed ?: 0f,
             acceleration = currentMaxAccel
         )
+        Log.d(TAG, "Saving point: $point")
         AppDatabase.getDatabase(this).motionDao().insert(point)
         currentMaxAccel = 0f
         return point
@@ -514,7 +550,7 @@ class PathToBarrierMonitoringService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(CHANNEL_ID, "Monitoring Service", NotificationManager.IMPORTANCE_LOW)
+        val channel = NotificationChannel(CHANNEL_ID, "Monitoring paths-to-barriers", NotificationManager.IMPORTANCE_LOW)
         val matchChannel = NotificationChannel(MATCH_CHANNEL_ID, "Auto-Trigger Matches", NotificationManager.IMPORTANCE_HIGH)
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
