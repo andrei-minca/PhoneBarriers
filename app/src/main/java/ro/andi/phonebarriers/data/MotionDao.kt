@@ -27,4 +27,7 @@ interface MotionDao {
 
     @Query("DELETE FROM motion_data WHERE sessionId IS NULL AND timestamp < :threshold")
     suspend fun cleanOldUnusedData(threshold: Long)
+
+    @Query("DELETE FROM motion_data WHERE sessionId IN (SELECT sessionId FROM motion_data WHERE sessionId IS NOT NULL GROUP BY sessionId HAVING MAX(timestamp) < :timeThreshold AND COUNT(*) < :lengthThreshold)")
+    suspend fun cleanShortOldSessions(timeThreshold: Long, lengthThreshold: Int)
 }

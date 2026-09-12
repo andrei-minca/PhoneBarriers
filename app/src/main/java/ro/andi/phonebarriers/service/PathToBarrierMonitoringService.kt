@@ -197,16 +197,26 @@ class PathToBarrierMonitoringService : Service() {
         
         while (currentState == State.ACTIVE) {
             yield()
-            val point = saveAndReturnPoint()
-            last30Points.add(point)
+
+            // collect data: first 30 points or another point
+            if (last30Points.size < 30) {
+                val points = collectData(30, 1000L)
+                last30Points.addAll(points)
+            }
+            else {
+                val point = saveAndReturnPoint()
+                last30Points.add(point)
+            }
+            // keep only 30 points
             if (last30Points.size > 30) last30Points.removeAt(0)
-            
+
+            // get all barriers with auto-trigger opted
             val db = AppDatabase.getDatabase(this)
             val barriersWithAutoTriggerOpted = db.barrierDao().getAll().filter { it.hasOptedAutoTrigger }
-            
+
+            // detect closest barrier and update widget
             var closestBarrier: Barrier? = null
             var minDistance = Float.MAX_VALUE
-            
             barriersWithAutoTriggerOpted.forEach { barrier ->
                 val distance = getDistanceTo(barrier)
                 if (distance < barrier.radius) {
@@ -217,7 +227,6 @@ class PathToBarrierMonitoringService : Service() {
                 }
                 Log.d(TAG, "[ACTIVE] distance to barrier: ${distance}m [name:${barrier.shortName}] [id:${barrier.id}] [radius:${barrier.radius}m]")
             }
-            
             if (closestBarrier != null) {
                 Log.d(TAG, "[ACTIVE] detected as closest barrier: ${closestBarrier.shortName} [${closestBarrier.id}]")
                 updateWidget(closestBarrier)
@@ -229,19 +238,21 @@ class PathToBarrierMonitoringService : Service() {
             } else {
                 updateWidget(null)
             }
-            
+
+            // detect max speed of the last 5 seconds
             val maxSpeedLast5 = last30Points.takeLast(5).maxOfOrNull { it.speed } ?: 0f
+
+            // detect if still in active range by max speed of the last 5 seconds
             val stillInRange = barriersWithAutoTriggerOpted.any {
                 isInRangeToReach(it, maxSpeedLast5, 2f, 30f)
             }
-            
             if (!stillInRange) {
                 Log.d(TAG, "[ACTIVE] In light range, transitioning to [LIGHT-SLEEP] (maxSpeedLast5s: $maxSpeedLast5 m/s)")
                 transitionTo(State.LIGHT_SLEEP)
                 break
             }
             else if (maxSpeedLast5 < SLOW_WALKING_SPEED) {
-                Log.d(TAG, "[ACTIVE] Still in active range but slow moving, transitioning to [LIGHT-SLEEP] (maxSpeedLast5s: $maxSpeedLast5 m/s)")
+                Log.d(TAG, "[ACTIVE] In active range but slow moving, transitioning to [LIGHT-SLEEP] (maxSpeedLast5s: $maxSpeedLast5 m/s)")
                 transitionTo(State.LIGHT_SLEEP)
                 break
             }
@@ -313,7 +324,12 @@ class PathToBarrierMonitoringService : Service() {
         stopAccelerometer()
 
         // remove unallocated points older than 1 minute
-        AppDatabase.getDatabase(this).motionDao().cleanOldUnusedData(System.currentTimeMillis() - 60000)
+        val motionDao = AppDatabase.getDatabase(this).motionDao()
+        motionDao.cleanOldUnusedData(System.currentTimeMillis() - 60000)
+
+        // remove sessions from database that have less than 30 points and are older than a week
+        val oneWeekAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
+        motionDao.cleanShortOldSessions(oneWeekAgo, 30)
         
         while (currentState == State.DEEP_SLEEP) {
             yield()
@@ -590,10 +606,10 @@ class PathToBarrierMonitoringService : Service() {
                 builder.addAction(android.R.drawable.ic_media_play, "Wake", pWake)
             }
             State.DEEP_SLEEP -> {
-            val wakeIntent = Intent(this, ControlReceiver::class.java).apply { action = ACTION_WAKE_DEEP }
-            val pWake = PendingIntent.getBroadcast(this, 4, wakeIntent, PendingIntent.FLAG_IMMUTABLE)
-            builder.addAction(android.R.drawable.ic_media_play, "Wake", pWake)
-        }
+                val wakeIntent = Intent(this, ControlReceiver::class.java).apply { action = ACTION_WAKE_DEEP }
+                val pWake = PendingIntent.getBroadcast(this, 4, wakeIntent, PendingIntent.FLAG_IMMUTABLE)
+                builder.addAction(android.R.drawable.ic_media_play, "Wake", pWake)
+            }
             else -> {}
         }
 
