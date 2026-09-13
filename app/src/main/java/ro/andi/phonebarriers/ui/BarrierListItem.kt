@@ -40,6 +40,7 @@ fun BarrierListItem(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLiftNLearnDialog by remember { mutableStateOf(false) }
     var showNoMedoidsDialog by remember { mutableStateOf(false) }
+    var showLiftConfirmationDialog by remember { mutableStateOf(false) }
 
     var isLiftProtected by remember { mutableStateOf(false) }
 
@@ -138,6 +139,31 @@ fun BarrierListItem(
         )
     }
 
+    if (showLiftConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLiftConfirmationDialog = false },
+            title = { Text("Confirm Lift") },
+            text = { Text("You are far away (${(distance / 1000).toInt()} km) from the barrier.\n" +
+                    "Are you sure you want to lift it?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLiftConfirmationDialog = false
+                        isLiftProtected = true
+                        onLift()
+                    }
+                ) {
+                    Text("Lift")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLiftConfirmationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,8 +222,12 @@ fun BarrierListItem(
                 }
                 Button(
                     onClick = {
-                        isLiftProtected = true
-                        onLift()
+                        if (distance > 5000) {
+                            showLiftConfirmationDialog = true
+                        } else {
+                            isLiftProtected = true
+                            onLift()
+                        }
                     },
                     enabled = !isLiftProtected,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
