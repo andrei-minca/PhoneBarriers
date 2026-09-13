@@ -488,12 +488,6 @@ class PathToBarrierMonitoringService : Service() {
     }
 
     private suspend fun checkAutoTrigger(barrier: Barrier, last30Points: List<MotionPoint>) {
-        val db = AppDatabase.getDatabase(this)
-        val medoids = db.medoidDao().getMedoidsForBarrier(barrier.id)
-        if (medoids.isEmpty()) {
-            Log.d(TAG, "No medoids found for barrier: ${barrier.shortName} [${barrier.id}]")
-            return
-        }
 
         val appPreferences = AppPreferences(this)
         val lastLiftTimestamp = appPreferences.getBarrierIdLastLiftTimestamp(barrier.id)
@@ -501,6 +495,13 @@ class PathToBarrierMonitoringService : Service() {
         if (lastLiftTimestamp > nowTimestamp - 10000) {
             Log.d(TAG, "Checking for match & auto-trigger canceled! Barrier already triggered recently, " +
                     "${barrier.shortName} [${barrier.id}], about ${nowTimestamp - lastLiftTimestamp} ms ago}")
+            return
+        }
+
+        val db = AppDatabase.getDatabase(this)
+        val medoids = db.medoidDao().getMedoidsForBarrier(barrier.id)
+        if (medoids.isEmpty()) {
+            Log.d(TAG, "No medoids found for barrier: ${barrier.shortName} [${barrier.id}]")
             return
         }
 
