@@ -319,8 +319,8 @@ class PathToBarrierMonitoringService : Service() {
             }
             else {
                 val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLast7s, false)
-                
-                Log.d(TAG, "[LIGHT-SLEEP] In light range and moving, sleeping for ${sleepMillis}ms (maxSpeedLast7s: $maxSpeedLast7s m/s, minDistance: ${minDistance}m)")
+                Log.d(TAG, "[LIGHT-SLEEP] In light range and moving, sleeping for ${sleepMillis}ms (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
                 stopLocationUpdates()
                 stopAccelerometer()
 
@@ -383,8 +383,8 @@ class PathToBarrierMonitoringService : Service() {
             }
             else {
                 val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLast5s, true)
+                Log.d(TAG, "[DEEP-SLEEP] In deep range, sleeping for ${sleepMillis}ms (maxSpeedLast5s: $maxSpeedLast5s m/s)")
 
-                Log.d(TAG, "[DEEP-SLEEP] In deep range, sleeping for ${sleepMillis}ms (maxSpeedLast5s: $maxSpeedLast5s m/s, minDistance: ${minDistance}m)")
                 stopLocationUpdates()
                 stopAccelerometer()
 
