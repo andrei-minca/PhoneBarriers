@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.AppPreferences
 import ro.andi.phonebarriers.data.Barrier
+import ro.andi.phonebarriers.data.BarrierWithMedoidCount
 import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
 
@@ -138,7 +139,7 @@ fun BarrierManagementScreen(
     val closestBarrierWithAutoTriggerOpted =
         remember(barriers, currentLocation) {
         currentLocation?.let { loc ->
-            barriers.filter { it.hasOptedAutoTrigger }.filter { barrier ->
+            barriers.map { it.barrier }.filter { it.hasOptedAutoTrigger }.filter { barrier ->
                 val results = FloatArray(1)
                 android.location.Location.distanceBetween(
                     loc.latitude, loc.longitude,
@@ -236,9 +237,11 @@ fun BarrierManagementScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp)
             ) {
-                items(barriers) { barrier ->
+                items(barriers) { barrierWithMedoidCount ->
+                    val barrier = barrierWithMedoidCount.barrier
                     BarrierListItem(
                         barrier = barrier,
+                        hasMedoids = barrierWithMedoidCount.medoidCount > 0,
                         currentLocation = currentLocation,
                         onEdit = { editingBarrier = barrier },
                         onDelete = { viewModel.deleteBarrier(barrier) },

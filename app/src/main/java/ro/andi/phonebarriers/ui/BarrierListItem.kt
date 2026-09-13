@@ -29,6 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun BarrierListItem(
     barrier: Barrier,
+    hasMedoids: Boolean,
     currentLocation: LatLng?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -38,6 +39,7 @@ fun BarrierListItem(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLiftNLearnDialog by remember { mutableStateOf(false) }
+    var showNoMedoidsDialog by remember { mutableStateOf(false) }
 
     var isLiftProtected by remember { mutableStateOf(false) }
 
@@ -116,6 +118,21 @@ fun BarrierListItem(
                     TextButton(onClick = { showLiftNLearnDialog = false }) {
                         Text("Cancel")
                     }
+                }
+            }
+        )
+    }
+
+    if (showNoMedoidsDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoMedoidsDialog = false },
+            title = { Text("No Golden Paths detected") },
+            text = { Text("Auto Trigger requires at least one 'golden path'.\n" +
+                    "Please use 'Lift & Learn' several times at this location to record your approach.\n" +
+                    "In time, and based on these manual paths provided, several 'golden paths' will be computed for this barrier and your behaviour around it.") },
+            confirmButton = {
+                TextButton(onClick = { showNoMedoidsDialog = false }) {
+                    Text("OK")
                 }
             }
         )
@@ -250,7 +267,13 @@ fun BarrierListItem(
                         ) {
                             Switch(
                                 checked = barrier.isEnabledAutoTrigger,
-                                onCheckedChange = onToggleAutoTrigger,
+                                onCheckedChange = { enabled ->
+                                    if (enabled && !hasMedoids) {
+                                        showNoMedoidsDialog = true
+                                    } else {
+                                        onToggleAutoTrigger(enabled)
+                                    }
+                                },
                                 modifier = Modifier.scale(0.9f)
                             )
                             Spacer(Modifier.width(8.dp))

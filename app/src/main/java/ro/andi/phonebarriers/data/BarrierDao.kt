@@ -7,6 +7,10 @@ interface BarrierDao {
     @Query("SELECT * FROM barriers")
     fun getAllFlow(): kotlinx.coroutines.flow.Flow<List<Barrier>>
 
+    @Transaction
+    @Query("SELECT *, (SELECT COUNT(*) FROM medoid_points WHERE barrierId = barriers.id) as medoidCount FROM barriers")
+    fun getAllWithMedoidCountFlow(): kotlinx.coroutines.flow.Flow<List<BarrierWithMedoidCount>>
+
     @Query("SELECT * FROM barriers")
     suspend fun getAll(): List<Barrier>
 

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.Barrier
+import ro.andi.phonebarriers.data.BarrierWithMedoidCount
 import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
 import android.content.Intent
 
@@ -23,7 +24,7 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
     private val barrierDao = AppDatabase.getDatabase(application).barrierDao()
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
-    val barriers: StateFlow<List<Barrier>> = barrierDao.getAllFlow()
+    val barriers: StateFlow<List<BarrierWithMedoidCount>> = barrierDao.getAllWithMedoidCountFlow()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
