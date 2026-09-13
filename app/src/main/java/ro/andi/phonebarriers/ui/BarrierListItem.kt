@@ -21,8 +21,10 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import kotlinx.coroutines.delay
 import ro.andi.phonebarriers.R
 import ro.andi.phonebarriers.data.Barrier
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun BarrierListItem(
@@ -36,6 +38,15 @@ fun BarrierListItem(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLiftNLearnDialog by remember { mutableStateOf(false) }
+
+    var isLiftProtected by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLiftProtected) {
+        if (isLiftProtected) {
+            delay(5000.milliseconds)
+            isLiftProtected = false
+        }
+    }
 
     val distance = remember(currentLocation, barrier) {
         if (currentLocation == null) return@remember Float.MAX_VALUE
@@ -89,6 +100,7 @@ fun BarrierListItem(
                 if (isInsideRadius) {
                     TextButton(onClick = {
                         showLiftNLearnDialog = false
+                        isLiftProtected = true
                         onLiftNLearn()
                     }) {
                         Text("Lift")
@@ -166,15 +178,27 @@ fun BarrierListItem(
                     Text("Caller  : ${barrier.phoneNumberFrom}", style = MaterialTheme.typography.bodyMedium)
                 }
                 Button(
-                    onClick = onLift,
+                    onClick = {
+                        isLiftProtected = true
+                        onLift()
+                    },
+                    enabled = !isLiftProtected,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    if (isLiftProtected) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text("Lift", style = MaterialTheme.typography.bodyMedium)
                 }
@@ -237,16 +261,25 @@ fun BarrierListItem(
 
                         Button(
                             onClick = { showLiftNLearnDialog = true },
+                            enabled = !isLiftProtected,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isInsideRadius) colorResource(id = R.color.blue_lift_n_learn) else Color.Gray
                             )
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            if (isLiftProtected) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                             Spacer(Modifier.width(4.dp))
                             Text("Lift & Learn", style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.width(4.dp))

@@ -68,133 +68,137 @@ fun BarrierForm(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState(), enabled = columnScrollingEnabled),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Barrier Info" + " (id: ${barrier?.id?:"0"})", style = MaterialTheme.typography.titleLarge)
-
-        OutlinedTextField(
-            value = shortName,
-            onValueChange = {
-                shortName = it
-                if (shortNameError) shortNameError = it.isBlank()
-            },
-            label = { Text("Short Name") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = shortNameError,
-            supportingText = { if (shortNameError) Text("Short Name is required") }
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = {
-                description = it
-                if (descriptionError) descriptionError = it.isBlank()
-            },
-            label = { Text("Description") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = descriptionError,
-            supportingText = { if (descriptionError) Text("Description is required") }
-        )
-        ColorInput(label = "Color:", selectedColor = color, onColorSelected = { color = it })
-        OutlinedTextField(
-            value = phoneTo,
-            onValueChange = {
-                phoneTo = it
-                if (phoneToError) phoneToError = it.isBlank()
-            },
-            label = { Text("Barrier Phone Number (To)") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = phoneToError,
-            supportingText = { if (phoneToError) Text("Barrier phone number is required") }
-        )
-        OutlinedTextField(
-            value = phoneFrom,
-            onValueChange = {
-                phoneFrom = it
-                if (phoneFromError) phoneFromError = it.isBlank()
-            },
-            label = { Text("Caller Phone Number (From)") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = phoneFromError,
-            supportingText = { if (phoneFromError) Text("Caller phone number is required") }
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState(), enabled = columnScrollingEnabled),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Opt for Lift-Learning & Auto-Trigger", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Switch(
-                checked = hasOptedAutoTrigger,
-                onCheckedChange = {
-                    if (!hasOptedAutoTrigger && it) {
-                        showOptInfo = true
-                    }
-                    hasOptedAutoTrigger = it
-                }
+            Text("Barrier Info" + " (id: ${barrier?.id?:"0"})", style = MaterialTheme.typography.titleLarge)
+
+            OutlinedTextField(
+                value = shortName,
+                onValueChange = {
+                    shortName = it
+                    if (shortNameError) shortNameError = it.isBlank()
+                },
+                label = { Text("Short Name") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = shortNameError,
+                supportingText = { if (shortNameError) Text("Short Name is required") }
             )
-        }
+            OutlinedTextField(
+                value = description,
+                onValueChange = {
+                    description = it
+                    if (descriptionError) descriptionError = it.isBlank()
+                },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = descriptionError,
+                supportingText = { if (descriptionError) Text("Description is required") }
+            )
+            ColorInput(label = "Color:", selectedColor = color, onColorSelected = { color = it })
+            OutlinedTextField(
+                value = phoneTo,
+                onValueChange = {
+                    phoneTo = it
+                    if (phoneToError) phoneToError = it.isBlank()
+                },
+                label = { Text("Barrier Phone Number (To)") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = phoneToError,
+                supportingText = { if (phoneToError) Text("Barrier phone number is required") }
+            )
+            OutlinedTextField(
+                value = phoneFrom,
+                onValueChange = {
+                    phoneFrom = it
+                    if (phoneFromError) phoneFromError = it.isBlank()
+                },
+                label = { Text("Caller Phone Number (From)") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = phoneFromError,
+                supportingText = { if (phoneFromError) Text("Caller phone number is required") }
+            )
 
-        if (hasOptedAutoTrigger) {
-            Text("Barrier Location & Auto-Trigger Radius", style = MaterialTheme.typography.titleMedium)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Box(
-                modifier = Modifier
-                    .height(300.dp)
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val dragEvent = event.changes.any { it.pressed }
-                                if (dragEvent) {
-                                    columnScrollingEnabled = false
-                                } else {
-                                    columnScrollingEnabled = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Opt for Lift-Learning & Auto-Trigger", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = hasOptedAutoTrigger,
+                    onCheckedChange = {
+                        if (!hasOptedAutoTrigger && it) {
+                            showOptInfo = true
+                        }
+                        hasOptedAutoTrigger = it
+                    }
+                )
+            }
+
+            if (hasOptedAutoTrigger) {
+
+                Text("Auto-Trigger Radius: ${radius.toInt()} meters")
+                Slider(
+                    value = radius,
+                    onValueChange = { radius = it },
+                    valueRange = 10f..500f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text("Barrier Location:")
+                Box(
+                    modifier = Modifier
+                        .height(300.dp)
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val dragEvent = event.changes.any { it.pressed }
+                                    if (dragEvent) {
+                                        columnScrollingEnabled = false
+                                    } else {
+                                        columnScrollingEnabled = true
+                                    }
                                 }
                             }
                         }
-                    }
-            ) {
-                val markerState = rememberMarkerState(position = LatLng(latitude, longitude))
-
-                // Sync marker position if latitude/longitude changes externally (though here it's vice versa)
-                LaunchedEffect(latitude, longitude) {
-                    markerState.position = LatLng(latitude, longitude)
-                }
-
-                GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState
                 ) {
-                    Marker(
-                        state = markerState,
-                        title = "Barrier Location"
-                    )
-                    Circle(
-                        center = LatLng(latitude, longitude),
-                        radius = radius.toDouble(),
-                        fillColor = Color.Red.copy(alpha = 0.3f),
-                        strokeColor = Color.Red,
-                        strokeWidth = 2f
-                    )
-                }
-            }
+                    val markerState = rememberMarkerState(position = LatLng(latitude, longitude))
 
-            Slider(
-                value = radius,
-                onValueChange = { radius = it },
-                valueRange = 10f..500f,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text("Auto-Trigger Radius: ${radius.toInt()} meters")
+                    // Sync marker position if latitude/longitude changes externally (though here it's vice versa)
+                    LaunchedEffect(latitude, longitude) {
+                        markerState.position = LatLng(latitude, longitude)
+                    }
+
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState
+                    ) {
+                        Marker(
+                            state = markerState,
+                            title = "Barrier Location"
+                        )
+                        Circle(
+                            center = LatLng(latitude, longitude),
+                            radius = radius.toDouble(),
+                            fillColor = Color.Red.copy(alpha = 0.3f),
+                            strokeColor = Color.Red,
+                            strokeWidth = 2f
+                        )
+                    }
+                }
+
+            }
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -233,4 +237,5 @@ fun BarrierForm(
             }
         }
     }
+
 }
