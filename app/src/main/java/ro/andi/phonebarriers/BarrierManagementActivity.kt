@@ -34,6 +34,8 @@ import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
 import com.google.android.gms.maps.model.LatLng
 
+import ro.andi.phonebarriers.ui.theme.PhoneBarriersTheme
+
 class BarrierManagementActivity : ComponentActivity() {
 
     companion object {
@@ -48,7 +50,7 @@ class BarrierManagementActivity : ComponentActivity() {
         seedDatabaseIfNeeded()
 
         setContent {
-            MaterialTheme {
+            PhoneBarriersTheme {
                 LaunchedEffect(Unit) {
                     viewModel.startLocationUpdates()
                 }

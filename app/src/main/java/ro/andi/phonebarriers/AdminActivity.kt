@@ -34,27 +34,10 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import ro.andi.phonebarriers.ui.theme.PhoneBarriersTheme
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import ro.andi.phonebarriers.service.RecurrentNativeWorker
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD0BCFF),secondary = Color(0xFFCCC2DC),
-    tertiary = Color(0xFFEFB8C8),
-    background = Color(0xFF1C1B1F),
-    surface = Color(0xFF1C1B1F),
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6650a4),
-    secondary = Color(0xFF625b71),
-    tertiary = Color(0xFF7D5260),
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-)
 
 class AdminActivity : ComponentActivity() {
 
@@ -103,12 +86,7 @@ class AdminActivity : ComponentActivity() {
         handleIntent(intent)
 
         setContent {
-            // Detect if the system is in Dark Mode
-            val darkTheme = isSystemInDarkTheme()
-            // Select the appropriate color scheme
-            val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-
-            MaterialTheme(colorScheme = colorScheme) {
+            PhoneBarriersTheme {
                 //var isLoading by remember { mutableStateOf(false) }
 
                 val csvPickerLauncherLnLMotion = rememberLauncherForActivityResult(
@@ -154,7 +132,7 @@ class AdminActivity : ComponentActivity() {
                             onClick = { toggleTrackingService() },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isServiceActive) Color(0xFFFF8C00) else Color.Green //Color(0xFF4CAF50) //FF8C00
+                                containerColor = if (isServiceActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         ) {
                             Text(if (isServiceActive) "Close Monitoring Service" else "Start Monitoring Service")
@@ -217,7 +195,7 @@ class AdminActivity : ComponentActivity() {
                         Button(
                             onClick = { csvPickerLauncherBarrierList.launch("text/comma-separated-values") },
                             modifier = Modifier.size(300.dp, 60.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Replace Barrier List from CSV")
                         }
@@ -227,7 +205,7 @@ class AdminActivity : ComponentActivity() {
                         Button(
                             onClick = { csvPickerLauncherLnLMotion.launch("text/comma-separated-values") },
                             modifier = Modifier.size(300.dp, 60.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Replace Motion Data from CSV")
                         }

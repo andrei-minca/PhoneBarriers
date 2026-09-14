@@ -16,7 +16,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,13 +27,15 @@ import androidx.core.content.ContextCompat
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
 
+import ro.andi.phonebarriers.ui.theme.PhoneBarriersTheme
+
 class LauncherActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
+            PhoneBarriersTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -147,15 +148,17 @@ fun LauncherScreen(onPermissionsGranted: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
+            Icon(
                 painter = painterResource(id = R.drawable.sv_fontawesome_road_barrier_s_f),
                 contentDescription = "Barrier Icon",
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurface
             )
-            Image(
+            Icon(
                 painter = painterResource(id = R.drawable.sv_fontawesome_brain_solid_full),
                 contentDescription = "Brain Icon",
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
         Spacer(modifier = Modifier.height(32.dp))
