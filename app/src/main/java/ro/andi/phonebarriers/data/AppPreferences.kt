@@ -30,6 +30,11 @@ class AppPreferences(val context: Context) {
         private const val KEY_WIDGET_BARRIER_PHONE_NUMBER_FROM = "widget_barrier_phone_number_from"
         private const val KEY_BARRIER_ID_LAST_LIFT_TIMESTAMP = "barrier_id_last_lift_timestamp"
 
+        private const val KEY_BARRIER_MIN_UNMATCH_DIST = "barrier_min_unmatch_dist_"
+        private const val KEY_BARRIER_MIN_UNMATCH_JSON = "barrier_min_unmatch_json_"
+        private const val KEY_BARRIER_MAX_UNMATCH_DIST = "barrier_max_unmatch_dist_"
+        private const val KEY_BARRIER_MAX_UNMATCH_JSON = "barrier_max_unmatch_json_"
+
     }
 
 
@@ -67,6 +72,18 @@ class AppPreferences(val context: Context) {
     fun setBarrierIdLastLiftTimestamp(barrierId: Int, liftTimestamp: Long) {
         sharedPrefs.edit { putLong(KEY_BARRIER_ID_LAST_LIFT_TIMESTAMP+barrierId.toString(), liftTimestamp) }
     }
+
+    fun getMinUnmatchDistance(barrierId: Int): Double = sharedPrefs.getFloat(KEY_BARRIER_MIN_UNMATCH_DIST + barrierId, Float.MAX_VALUE).toDouble()
+    fun setMinUnmatchDistance(barrierId: Int, distance: Double) = sharedPrefs.edit { putFloat(KEY_BARRIER_MIN_UNMATCH_DIST + barrierId, distance.toFloat()) }
+
+    fun getMinUnmatchJson(barrierId: Int): String? = sharedPrefs.getString(KEY_BARRIER_MIN_UNMATCH_JSON + barrierId, null)
+    fun setMinUnmatchJson(barrierId: Int, json: String) = sharedPrefs.edit { putString(KEY_BARRIER_MIN_UNMATCH_JSON + barrierId, json) }
+
+    fun getMaxUnmatchDistance(barrierId: Int): Double = sharedPrefs.getFloat(KEY_BARRIER_MAX_UNMATCH_DIST + barrierId, -1f).toDouble()
+    fun setMaxUnmatchDistance(barrierId: Int, distance: Double) = sharedPrefs.edit { putFloat(KEY_BARRIER_MAX_UNMATCH_DIST + barrierId, distance.toFloat()) }
+
+    fun getMaxUnmatchJson(barrierId: Int): String? = sharedPrefs.getString(KEY_BARRIER_MAX_UNMATCH_JSON + barrierId, null)
+    fun setMaxUnmatchJson(barrierId: Int, json: String) = sharedPrefs.edit { putString(KEY_BARRIER_MAX_UNMATCH_JSON + barrierId, json) }
 
 
     fun getActiveHours(): List<Int> {

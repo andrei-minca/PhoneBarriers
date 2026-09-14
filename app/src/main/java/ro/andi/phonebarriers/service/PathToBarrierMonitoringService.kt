@@ -44,7 +44,10 @@ class PathToBarrierMonitoringService : Service() {
         private const val CHANNEL_ID = "monitoring_channel"
         private const val MATCH_CHANNEL_ID = "match_results_channel"
         private const val NOTIFICATION_ID = 100
-        private const val MATCH_NOTIFICATION_BASE_ID = 2000
+        private const val CURRENT_UNMATCH_NOTIFICATION_BASE_ID = 2000
+        private const val MIN_UNMATCH_NOTIFICATION_BASE_ID = 3000
+        private const val MAX_UNMATCH_NOTIFICATION_BASE_ID = 4000
+        private const val MATCH_SUCCESS_NOTIFICATION_BASE_ID = 5000
         
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_SLEEP = "ACTION_SLEEP"
@@ -542,17 +545,46 @@ class PathToBarrierMonitoringService : Service() {
                 )
             }
 
-            showMatchNotification(barrier, matchResult, matchResultJson)
+            showMatchNotification(barrier, matchResult, matchResultJson, "Auto-Triggered", MATCH_SUCCESS_NOTIFICATION_BASE_ID + barrier.id)
         }
         else {
             Log.d(TAG, "AUTO-TRIGGER not matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
 
-            showMatchNotification(barrier, matchResult, matchResultJson)
+            // Current unmatch
+            showMatchNotification(barrier, matchResult, matchResultJson, "Current UNMATCH", CURRENT_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+
+            // Min unmatch
+            val minUnmatchDist = appPreferences.getMinUnmatchDistance(barrier.id)
+            if (matchResult.bestDistance < minUnmatchDist) {
+                appPreferences.setMinUnmatchDistance(barrier.id, matchResult.bestDistance)
+                appPreferences.setMinUnmatchJson(barrier.id, matchResultJson)
+                showMatchNotification(barrier, matchResult, matchResultJson, "MIN UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+            } else {
+                val minJson = appPreferences.getMinUnmatchJson(barrier.id)
+                if (minJson != null) {
+                    val minResult = gson.fromJson(minJson, MatchResultJson::class.java)
+                    showMatchNotification(barrier, minResult, minJson, "MIN UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                }
+            }
+
+            // Max unmatch
+            val maxUnmatchDist = appPreferences.getMaxUnmatchDistance(barrier.id)
+            if (matchResult.bestDistance > maxUnmatchDist) {
+                appPreferences.setMaxUnmatchDistance(barrier.id, matchResult.bestDistance)
+                appPreferences.setMaxUnmatchJson(barrier.id, matchResultJson)
+                showMatchNotification(barrier, matchResult, matchResultJson, "MAX UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+            } else {
+                val maxJson = appPreferences.getMaxUnmatchJson(barrier.id)
+                if (maxJson != null) {
+                    val maxResult = gson.fromJson(maxJson, MatchResultJson::class.java)
+                    showMatchNotification(barrier, maxResult, maxJson, "MAX UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                }
+            }
         }
     }
 
-    private fun showMatchNotification(barrier: Barrier, result: MatchResultJson, rawJson: String) {
-        val title = if (result.hasMatch) "Auto-Triggered: ${barrier.shortName}" else "No match to auto-trigger: ${barrier.shortName}"
+    private fun showMatchNotification(barrier: Barrier, result: MatchResultJson, rawJson: String, prefix: String, notificationId: Int) {
+        val title = "$prefix: ${barrier.shortName}"
 
         val builder = NotificationCompat.Builder(this, MATCH_CHANNEL_ID)
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
@@ -570,7 +602,7 @@ class PathToBarrierMonitoringService : Service() {
             .setAutoCancel(true)
 
         try {
-            NotificationManagerCompat.from(this).notify(MATCH_NOTIFICATION_BASE_ID + barrier.id, builder.build())
+            NotificationManagerCompat.from(this).notify(notificationId, builder.build())
         } catch (e: SecurityException) {
             Log.e(TAG, "Notification permission missing")
         }

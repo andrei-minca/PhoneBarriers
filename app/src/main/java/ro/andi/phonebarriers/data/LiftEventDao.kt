@@ -18,4 +18,7 @@ interface LiftEventDao {
 
     @Query("SELECT COUNT(*) FROM lift_events WHERE barrierId = :barrierId AND outcome = 'SUCCESS' AND source = :source")
     suspend fun getSuccessCountBySource(barrierId: Int, source: LiftSource): Int
+
+    @Query("SELECT * FROM lift_events ORDER BY timestamp DESC")
+    suspend fun getAllEvents(): List<LiftEvent>
 }

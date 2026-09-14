@@ -184,6 +184,16 @@ class AdminActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Button(
+                            onClick = { shareLiftEventsCsv(this@AdminActivity) },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Text("Share Lift Events (CSV)")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
                             onClick = { shareMedoidCsv(this@AdminActivity) },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
@@ -400,6 +410,33 @@ class AdminActivity : ComponentActivity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, "Share Motion Data"))
+        }
+    }
+
+    fun shareLiftEventsCsv(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val data = AppDatabase.getDatabase(context).liftEventDao().getAllEvents()
+            val csvHeader = "Id,BarrierId,BarrierName,Time,Source,Outcome,Reason,Lat,Lng,Alt,Speed,Accel\n"
+            val csvRows = data.joinToString("\n") {
+                "${it.id},${it.barrierId},${CsvUtils.escapeCsvField(it.barrierName)}," +
+                        "${it.timestamp}," +
+                        "${it.source},${it.outcome},${CsvUtils.escapeCsvField(it.reason ?: "")}," +
+                        "${it.latitude},${it.longitude},${it.altitude}," +
+                        "${it.speed},${it.acceleration}"
+            }
+
+            val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val dateStr = sdf.format(Date())
+            val file = File(context.cacheDir, "lift_events_${dateStr}_${System.currentTimeMillis()}.csv")
+            file.writeText(csvHeader + csvRows)
+
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share Lift Events"))
         }
     }
 
