@@ -31,4 +31,10 @@ interface BarrierDao {
 
     @Delete
     suspend fun delete(barrier: Barrier)
+
+    @Insert
+    suspend fun insertAll(barriers: List<Barrier>)
+
+    @Query("DELETE FROM barriers")
+    suspend fun clearAll()
 }

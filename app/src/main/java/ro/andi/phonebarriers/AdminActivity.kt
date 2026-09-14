@@ -111,10 +111,15 @@ class AdminActivity : ComponentActivity() {
             MaterialTheme(colorScheme = colorScheme) {
                 //var isLoading by remember { mutableStateOf(false) }
 
-                val csvPickerLauncher = rememberLauncherForActivityResult(
+                val csvPickerLauncherLnLMotion = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.GetContent()
                 ) { uri: Uri? ->
                     uri?.let { loadMotionDataFromCsv(it) }
+                }
+                val csvPickerLauncherBarrierList = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri: Uri? ->
+                    uri?.let { loadBarrierListFromCsv(it) }
                 }
 
                 Surface(
@@ -159,11 +164,21 @@ class AdminActivity : ComponentActivity() {
 
                         // --- SHARE CSV BUTTONS ---
                         Button(
-                            onClick = { shareSessionCsv(this@AdminActivity) },
+                            onClick = { shareBarrierListCsv(this@AdminActivity) },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
-                            Text("Share Trigger Motion Data (CSV)")
+                            Text("Share Barrier List (CSV)")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { shareLnLMotionCsv(this@AdminActivity) },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Text("Share LnL Motion Data (CSV)")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -188,8 +203,19 @@ class AdminActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.height(24.dp))
 
+
                         Button(
-                            onClick = { csvPickerLauncher.launch("text/comma-separated-values") },
+                            onClick = { csvPickerLauncherBarrierList.launch("text/comma-separated-values") },
+                            modifier = Modifier.size(300.dp, 60.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
+                        ) {
+                            Text("Replace Barrier List from CSV")
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { csvPickerLauncherLnLMotion.launch("text/comma-separated-values") },
                             modifier = Modifier.size(300.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Blue)
                         ) {
@@ -326,7 +352,32 @@ class AdminActivity : ComponentActivity() {
         }
     }
 
-    fun shareSessionCsv(context: Context) {
+    fun shareBarrierListCsv(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val data = AppDatabase.getDatabase(context).barrierDao().getAll()
+            val csvHeader = "ShortName,Description,Color,PhoneNumberTo,PhoneNumberFrom,Latitude,Longitude,Radius,IsEnabledAutoTrigger,HasOptedAutoTrigger\n"
+            val csvRows = data.joinToString("\n") {
+                CsvUtils.escapeCsvField(it.shortName) + ","+ CsvUtils.escapeCsvField(it.description) + "," +
+                        "${it.color},${it.phoneNumberTo},${it.phoneNumberFrom}," +
+                        "${it.latitude},${it.longitude},${it.radius},${it.isEnabledAutoTrigger},${it.hasOptedAutoTrigger}"
+            }
+
+            val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val dateStr = sdf.format(Date())
+            val file = File(context.cacheDir, "barrier_list_${dateStr}_${System.currentTimeMillis()}.csv")
+            file.writeText(csvHeader + csvRows)
+
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share Barrier List"))
+        }
+    }
+
+    fun shareLnLMotionCsv(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             val data = AppDatabase.getDatabase(context).motionDao().getData()
             val csvHeader = "BarrierId,SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel\n"
@@ -389,7 +440,7 @@ class AdminActivity : ComponentActivity() {
         Toast.makeText(this, "Analysis Task Enqueued", Toast.LENGTH_SHORT).show()
     }
 
-    private fun loadMotionDataFromCsv(uri: Uri) {
+    private fun loadBarrierListFromCsv(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val inputStream = contentResolver.openInputStream(uri)
@@ -398,8 +449,57 @@ class AdminActivity : ComponentActivity() {
                 
                 if (lines.isEmpty()) return@launch
 
-                val points = mutableListOf<ro.andi.phonebarriers.data.MotionPoint>()
+                val barriers = mutableListOf<ro.andi.phonebarriers.data.Barrier>()
                 
+                // Skip header: ShortName,Description,Color,PhoneNumberTo,PhoneNumberFrom,Latitude,Longitude,Radius,IsEnabledAutoTrigger,HasOptedAutoTrigger
+                lines.drop(1).forEach { line ->
+                    val columns = //line.split(",")
+                        CsvUtils.parseCsvLine(line)
+                    if (columns.size >= 10) {
+                        barriers.add(
+                            ro.andi.phonebarriers.data.Barrier(
+                                shortName = columns[0],
+                                description = columns[1],
+                                color = columns[2].toInt(),
+                                phoneNumberTo = columns[3],
+                                phoneNumberFrom = columns[4],
+                                latitude = columns[5].toDouble(),
+                                longitude = columns[6].toDouble(),
+                                radius = columns[7].toFloat(),
+                                isEnabledAutoTrigger = columns[8].toBoolean(),
+                                hasOptedAutoTrigger = columns[9].toBoolean()
+                            )
+                        )
+                    }
+                }
+
+                val db = AppDatabase.getDatabase(this@AdminActivity)
+                db.barrierDao().clearAll()
+                db.barrierDao().insertAll(barriers)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@AdminActivity, "Successfully loaded ${barriers.size} barriers", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e("AdminActivity", "Error loading CSV", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@AdminActivity, "Failed to load CSV: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun loadMotionDataFromCsv(uri: Uri) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri)
+                val reader = inputStream?.bufferedReader()
+                val lines = reader?.readLines() ?: emptyList()
+
+                if (lines.isEmpty()) return@launch
+
+                val points = mutableListOf<ro.andi.phonebarriers.data.MotionPoint>()
+
                 // Skip header: BarrierId,SessionId,Time,Accuracy,Lat,Lng,Alt,Speed,Accel
                 lines.drop(1).forEach { line ->
                     val columns = line.split(",")
