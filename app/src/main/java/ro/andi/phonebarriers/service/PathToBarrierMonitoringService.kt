@@ -32,10 +32,8 @@ import ro.andi.phonebarriers.CallRepository
 import ro.andi.phonebarriers.CallWidget
 import ro.andi.phonebarriers.NativeLib
 import ro.andi.phonebarriers.R
-import ro.andi.phonebarriers.data.AppDatabase
-import ro.andi.phonebarriers.data.AppPreferences
-import ro.andi.phonebarriers.data.Barrier
-import ro.andi.phonebarriers.data.MotionPoint
+import ro.andi.phonebarriers.data.*
+import ro.andi.phonebarriers.logging.LiftEventLogger
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -521,14 +519,28 @@ class PathToBarrierMonitoringService : Service() {
         if (matchResult.hasMatch) {
             Log.d(TAG, "AUTO-TRIGGER matched for barrier: ${barrier.shortName} [${barrier.id}]. Result: $matchResultJson")
 
-            db.barrierDao().update(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
-
             appPreferences.setBarrierIdLastLiftTimestamp(barrier.id, System.currentTimeMillis())
+
+            val loc = lastLocation
+            val accel = currentMaxAccel
 
             CallRepository.triggerOneRing(
                 barrier.phoneNumberTo,
                 barrier.phoneNumberFrom
-            ) { /* handle success/fail if needed */ }
+            ) { success ->
+                LiftEventLogger.logEvent(
+                    context = this,
+                    barrier = barrier,
+                    source = LiftSource.AUTO_TRIGGER,
+                    outcome = if (success) LiftOutcome.SUCCESS else LiftOutcome.FAILED,
+                    reason = if (success) null else "Call failed",
+                    latitude = loc?.latitude ?: 0.0,
+                    longitude = loc?.longitude ?: 0.0,
+                    altitude = loc?.altitude ?: 0.0,
+                    speed = loc?.speed ?: 0f,
+                    acceleration = accel
+                )
+            }
 
             showMatchNotification(barrier, matchResult, matchResultJson)
         }

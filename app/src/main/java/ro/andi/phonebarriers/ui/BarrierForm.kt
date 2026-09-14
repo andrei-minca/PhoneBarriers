@@ -225,10 +225,7 @@ fun BarrierForm(
                             longitude = longitude,
                             radius = radius,
                             hasOptedAutoTrigger = hasOptedAutoTrigger,
-                            isEnabledAutoTrigger = barrier?.isEnabledAutoTrigger ?: true,
-                            countLift = barrier?.countLift ?: 0,
-                            countLiftNLearn = barrier?.countLiftNLearn ?: 0,
-                            countAutoTriggered = barrier?.countAutoTriggered ?: 0
+                            isEnabledAutoTrigger = barrier?.isEnabledAutoTrigger ?: true
                         )
                     )
                 }

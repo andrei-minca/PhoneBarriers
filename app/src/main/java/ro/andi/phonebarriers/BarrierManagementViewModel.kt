@@ -1,6 +1,7 @@
 package ro.andi.phonebarriers
 
 import android.app.Application
+import android.location.Location
 import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -10,18 +11,28 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.Barrier
 import ro.andi.phonebarriers.data.BarrierWithMedoidCount
+import ro.andi.phonebarriers.data.LiftSource
 import ro.andi.phonebarriers.service.PathToBarrierMonitoringService
 import android.content.Intent
 
+data class BarrierStats(
+    val failedCount: Int,
+    val successButton: Int,
+    val successLiftNLearn: Int,
+    val successWidget: Int,
+    val successAutoTrigger: Int
+)
+
 class BarrierManagementViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "BarrierVM"
-    private val barrierDao = AppDatabase.getDatabase(application).barrierDao()
+    private val db = AppDatabase.getDatabase(application)
+    private val barrierDao = db.barrierDao()
+    private val liftEventDao = db.liftEventDao()
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
     val barriers: StateFlow<List<BarrierWithMedoidCount>> = barrierDao.getAllWithMedoidCountFlow()
@@ -31,16 +42,14 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
             initialValue = emptyList()
         )
 
-    private val _currentLocation = MutableStateFlow<LatLng?>(null)
-    val currentLocation: StateFlow<LatLng?> = _currentLocation.asStateFlow()
+    private val _currentLocation = MutableStateFlow<Location?>(null)
+    val currentLocation: StateFlow<Location?> = _currentLocation.asStateFlow()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             val loc = locationResult.lastLocation
             Log.d(TAG, "onLocationResult: $loc")
-            loc?.let {
-                _currentLocation.value = LatLng(it.latitude, it.longitude)
-            }
+            _currentLocation.value = loc
         }
     }
 
@@ -75,9 +84,7 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
             // Also try to get the very last known location immediately
             fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                 Log.d(TAG, "Initial lastLocation: $loc")
-                loc?.let {
-                    _currentLocation.value = LatLng(it.latitude, it.longitude)
-                }
+                _currentLocation.value = loc
             }
 
             fusedLocationClient.requestLocationUpdates(
@@ -137,16 +144,14 @@ class BarrierManagementViewModel(application: Application) : AndroidViewModel(ap
         }
     }
 
-    fun incrementLiftCount(barrier: Barrier) {
-        updateBarrier(barrier.copy(countLift = barrier.countLift + 1))
-    }
-
-    fun incrementLiftNLearnCount(barrier: Barrier) {
-        updateBarrier(barrier.copy(countLiftNLearn = barrier.countLiftNLearn + 1))
-    }
-
-    fun incrementAutoTriggeredCount(barrier: Barrier) {
-        updateBarrier(barrier.copy(countAutoTriggered = barrier.countAutoTriggered + 1))
+    suspend fun getLiftStats(barrierId: Int): BarrierStats {
+        return BarrierStats(
+            failedCount = liftEventDao.getFailedCount(barrierId),
+            successButton = liftEventDao.getSuccessCountBySource(barrierId, LiftSource.BUTTON),
+            successLiftNLearn = liftEventDao.getSuccessCountBySource(barrierId, LiftSource.BUTTON_LIFT_AND_LEARN),
+            successWidget = liftEventDao.getSuccessCountBySource(barrierId, LiftSource.WIDGET),
+            successAutoTrigger = liftEventDao.getSuccessCountBySource(barrierId, LiftSource.AUTO_TRIGGER)
+        )
     }
 
     fun toggleAutoTrigger(barrier: Barrier, enabled: Boolean) {

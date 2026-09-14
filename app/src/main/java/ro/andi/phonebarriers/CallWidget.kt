@@ -14,6 +14,11 @@ import kotlinx.coroutines.withContext
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.AppPreferences
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.Tasks
+import ro.andi.phonebarriers.data.LiftOutcome
+import ro.andi.phonebarriers.data.LiftSource
+import ro.andi.phonebarriers.logging.LiftEventLogger
 
 class CallWidget : AppWidgetProvider() {
 
@@ -82,19 +87,43 @@ class CallWidget : AppWidgetProvider() {
                 try {
                     val db = AppDatabase.getDatabase(context)
 
-                    // A.1 update lift-n-learn count & last lift timestamp
-                    db.barrierDao().getById(barrierId)?.let { barrier ->
-                        db.barrierDao().update(barrier.copy(countLiftNLearn = barrier.countLiftNLearn + 1))
+                    // A1. set lst lift timestamp for barrier
+                    val barrier = db.barrierDao().getById(barrierId)
+
+                    if (barrier == null) {
+                        return@launch
                     }
 
                     prefs.setBarrierIdLastLiftTimestamp(barrierId, System.currentTimeMillis())
+
+                    // Get location
+                    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                    var lastLoc: android.location.Location? = null
+                    if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        try {
+                            lastLoc = Tasks.await(fusedLocationClient.lastLocation)
+                        } catch (_: Exception) {
+                            // Ignore
+                        }
+                    }
 
                     // A.2 Trigger the API/Call
                     CallRepository.triggerOneRing(
                         barrierPhoneTo,
                         barrierPhoneFrom
-                    ) { /* handle success/fail if needed */ }
-
+                    ) { success ->
+                        LiftEventLogger.logEvent(
+                            context = context,
+                            barrier = barrier,
+                            source = LiftSource.WIDGET,
+                            outcome = if (success) LiftOutcome.SUCCESS else LiftOutcome.FAILED,
+                            reason = if (success) null else "Call failed",
+                            latitude = lastLoc?.latitude ?: 0.0,
+                            longitude = lastLoc?.longitude ?: 0.0,
+                            altitude = lastLoc?.altitude ?: 0.0,
+                            speed = lastLoc?.speed ?: 0f
+                        )
+                    }
 
                     // B. Tag recent motion points (Same logic as Activity)
                     run {

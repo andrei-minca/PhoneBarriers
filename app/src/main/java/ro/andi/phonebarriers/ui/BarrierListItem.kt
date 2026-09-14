@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +36,8 @@ fun BarrierListItem(
     onDelete: () -> Unit,
     onLift: () -> Unit,
     onLiftNLearn: () -> Unit,
-    onToggleAutoTrigger: (Boolean) -> Unit
+    onToggleAutoTrigger: (Boolean) -> Unit,
+    onShowStats: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLiftNLearnDialog by remember { mutableStateOf(false) }
@@ -190,6 +192,9 @@ fun BarrierListItem(
                     )
                 }
                 Row {
+                    IconButton(onClick = onShowStats) {
+                        Icon(Icons.Default.Info, contentDescription = "Stats")
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }

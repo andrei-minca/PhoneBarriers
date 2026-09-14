@@ -16,8 +16,8 @@ android {
         applicationId = "ro.andi.phonebarriers"
         minSdk = 29
         targetSdk = 36
-        versionCode = 9
-        versionName = "2.3"
+        versionCode = 11
+        versionName = "2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

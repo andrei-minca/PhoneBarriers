@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,9 +27,12 @@ import kotlinx.coroutines.launch
 import ro.andi.phonebarriers.data.AppDatabase
 import ro.andi.phonebarriers.data.AppPreferences
 import ro.andi.phonebarriers.data.Barrier
-import ro.andi.phonebarriers.data.BarrierWithMedoidCount
+import ro.andi.phonebarriers.data.LiftOutcome
+import ro.andi.phonebarriers.data.LiftSource
+import ro.andi.phonebarriers.logging.LiftEventLogger
 import ro.andi.phonebarriers.ui.BarrierForm
 import ro.andi.phonebarriers.ui.BarrierListItem
+import com.google.android.gms.maps.model.LatLng
 
 class BarrierManagementActivity : ComponentActivity() {
 
@@ -54,8 +59,7 @@ class BarrierManagementActivity : ComponentActivity() {
                             startActivity(Intent(this, AdminActivity::class.java))
                         },
                         onLift = { barrier ->
-                            viewModel.incrementLiftCount(barrier)
-
+                            val loc = viewModel.currentLocation.value
                             AppPreferences(this)
                                 .setBarrierIdLastLiftTimestamp(
                                     barrier.id,
@@ -65,14 +69,24 @@ class BarrierManagementActivity : ComponentActivity() {
                             CallRepository.triggerOneRing(
                                 barrier.phoneNumberTo,
                                 barrier.phoneNumberFrom) { success ->
+                                LiftEventLogger.logEvent(
+                                    context = this,
+                                    barrier = barrier,
+                                    source = LiftSource.BUTTON,
+                                    outcome = if (success) LiftOutcome.SUCCESS else LiftOutcome.FAILED,
+                                    reason = if (success) null else "Call failed",
+                                    latitude = loc?.latitude ?: 0.0,
+                                    longitude = loc?.longitude ?: 0.0,
+                                    altitude = loc?.altitude ?: 0.0,
+                                    speed = loc?.speed ?: 0f
+                                )
                                 runOnUiThread {
                                     Toast.makeText(this, if (success) "Lift triggered for ${barrier.shortName}" else "Failed to trigger lift", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
                         onLiftNLearn = { barrier ->
-                            viewModel.incrementLiftNLearnCount(barrier)
-
+                            val loc = viewModel.currentLocation.value
                             AppPreferences(this)
                                 .setBarrierIdLastLiftTimestamp(
                                     barrier.id,
@@ -82,6 +96,17 @@ class BarrierManagementActivity : ComponentActivity() {
                             CallRepository.triggerOneRing(
                                 barrier.phoneNumberTo,
                                 barrier.phoneNumberFrom) { success ->
+                                    LiftEventLogger.logEvent(
+                                        context = this,
+                                        barrier = barrier,
+                                        source = LiftSource.BUTTON_LIFT_AND_LEARN,
+                                        outcome = if (success) LiftOutcome.SUCCESS else LiftOutcome.FAILED,
+                                        reason = if (success) null else "Call failed",
+                                        latitude = loc?.latitude ?: 0.0,
+                                        longitude = loc?.longitude ?: 0.0,
+                                        altitude = loc?.altitude ?: 0.0,
+                                        speed = loc?.speed ?: 0f
+                                    )
                                     runOnUiThread {
                                         Toast.makeText(this, if (success) "Lift & Lear triggered for ${barrier.shortName}" else "Failed to trigger lift & learn", Toast.LENGTH_SHORT).show()
                                     }
@@ -131,14 +156,17 @@ fun BarrierManagementScreen(
     onLiftNLearn: (Barrier) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     val barriers by viewModel.barriers.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
+    val currentLatLng = currentLocation?.let { LatLng(it.latitude, it.longitude) }
     var showForm by remember { mutableStateOf(value = false) }
     var editingBarrier by remember { mutableStateOf<Barrier?>(null) }
+    var statsToShow by remember { mutableStateOf<Pair<Barrier, BarrierStats>?>(null) }
 
     val closestBarrierWithAutoTriggerOpted =
-        remember(barriers, currentLocation) {
-        currentLocation?.let { loc ->
+        remember(barriers, currentLatLng) {
+        currentLatLng?.let { loc ->
             barriers.map { it.barrier }.filter { it.hasOptedAutoTrigger }.filter { barrier ->
                 val results = FloatArray(1)
                 android.location.Location.distanceBetween(
@@ -184,6 +212,30 @@ fun BarrierManagementScreen(
 
     val isShowingForm = showForm || editingBarrier != null
 
+    if (statsToShow != null) {
+        val (barrier, stats) = statsToShow!!
+        AlertDialog(
+            onDismissRequest = { statsToShow = null },
+            title = { Text("Stats: ${barrier.shortName}") },
+            text = {
+                Column {
+                    Text("Failed Lifts: ${stats.failedCount}", color = Color.Red, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Successful Lifts:", style = MaterialTheme.typography.titleMedium)
+                    Text("  • Button: ${stats.successButton}")
+                    Text("  • Lift & Learn: ${stats.successLiftNLearn}")
+                    Text("  • Widget: ${stats.successWidget}")
+                    Text("  • Auto Trigger: ${stats.successAutoTrigger}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { statsToShow = null }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             if (!isShowingForm) {
@@ -214,7 +266,7 @@ fun BarrierManagementScreen(
             Box(modifier = Modifier.padding(padding)) {
                 BarrierForm(
                     barrier = editingBarrier,
-                    currentLocation = currentLocation,
+                    currentLocation = currentLatLng,
                     onSave = {
                         if (editingBarrier != null) {
                             viewModel.updateBarrier(it)
@@ -242,13 +294,19 @@ fun BarrierManagementScreen(
                     BarrierListItem(
                         barrier = barrier,
                         hasMedoids = barrierWithMedoidCount.medoidCount > 0,
-                        currentLocation = currentLocation,
+                        currentLocation = currentLatLng,
                         onEdit = { editingBarrier = barrier },
                         onDelete = { viewModel.deleteBarrier(barrier) },
                         onLift = { onLift(barrier) },
                         onLiftNLearn = { onLiftNLearn(barrier) },
                         onToggleAutoTrigger = { enabled ->
                             viewModel.toggleAutoTrigger(barrier, enabled)
+                        },
+                        onShowStats = {
+                            scope.launch {
+                                val stats = viewModel.getLiftStats(barrier.id)
+                                statsToShow = barrier to stats
+                            }
                         }
                     )
                 }
