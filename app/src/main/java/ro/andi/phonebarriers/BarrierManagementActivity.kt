@@ -295,7 +295,7 @@ fun BarrierManagementScreen(
                     val barrier = barrierWithMedoidCount.barrier
                     BarrierListItem(
                         barrier = barrier,
-                        hasMedoids = barrierWithMedoidCount.medoidCount > 0,
+                        hasMedoids = barrierWithMedoidCount.medoidCount > 2, // the first two entries are for relative points MINs & MAXs needed for normalization
                         currentLocation = currentLatLng,
                         onEdit = { editingBarrier = barrier },
                         onDelete = { viewModel.deleteBarrier(barrier) },

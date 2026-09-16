@@ -34,8 +34,14 @@ Java_ro_andi_phonebarriers_NativeLib_stringFromJNI(
 
 // ========================================================
 
-double TC1 = 5.2;
-int TS1 = 3;
+double T1 = 20.0;   // maximum radius for precision (meters) of each point in a sessions
+int T1a = 30;       // minimum number of points/samples in a session
+double T1b = 10.0;  // minimum radius for precision (meters) of the last point/sample in a session
+//
+double TC1 = 5.2;   // distance threshold for DBSCAN clustering
+int TS1 = 3;        // minimum number of paths/sessions in a cluster
+
+// ========================================================
 
 struct MotionPoint {
     int id{};
@@ -138,9 +144,6 @@ typedef std::map<long long, std::vector<std::vector<MotionPoint>::const_iterator
  */
 mapSid2RawPointRefType cleanAndFilterSessions(const mapSid2RawPointRefType & sessionMap) {
 
-    double T1 = 20.0;
-    int T1a = 30;
-    double T1b = 10.0;
 
     mapSid2RawPointRefType cleanedSessionMap;
 
@@ -844,8 +847,8 @@ Java_ro_andi_phonebarriers_NativeLib_dtwClassifyAndFindMedoidsForPathsAndAnchors
     medoidsSidJson += '}';
     medoidsRelativePointsJSON += ']';
 
-    
 
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
@@ -1004,6 +1007,7 @@ Java_ro_andi_phonebarriers_NativeLib_matchPathWithBarrierMedoids(JNIEnv *env, jo
     }
 
     // 4. Normalize last30 points
+    // todo: for out of bound normalized points should clip the values (to MIN or MAX) or reject the path/session entirely
     std::vector<NormPoint> normLast30;
     normLast30.reserve(relPoints.size());
     for (const auto& rp : relPoints) {

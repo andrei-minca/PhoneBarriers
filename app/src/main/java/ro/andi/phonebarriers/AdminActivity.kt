@@ -138,7 +138,7 @@ class AdminActivity : ComponentActivity() {
                             Text(if (isServiceActive) "Close Monitoring Service" else "Start Monitoring Service")
                         }
 
-                        Spacer(modifier = Modifier.height(96.dp))
+                        Spacer(modifier = Modifier.height(72.dp))
 
                         // --- SHARE CSV BUTTONS ---
                         Button(
@@ -149,7 +149,7 @@ class AdminActivity : ComponentActivity() {
                             Text("Share Barrier List (CSV)")
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { shareLnLMotionCsv(this@AdminActivity) },
@@ -159,7 +159,7 @@ class AdminActivity : ComponentActivity() {
                             Text("Share LnL Motion Data (CSV)")
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { shareLiftEventsCsv(this@AdminActivity) },
@@ -169,7 +169,7 @@ class AdminActivity : ComponentActivity() {
                             Text("Share Lift Events (CSV)")
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { shareMedoidCsv(this@AdminActivity) },
@@ -184,7 +184,7 @@ class AdminActivity : ComponentActivity() {
                         Button(
                             onClick = { triggerRecurrentWorker() },
                             modifier = Modifier.size(300.dp, 60.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
                         ) {
                             Text("[Classify & Find Medoids]")
                         }
@@ -194,20 +194,20 @@ class AdminActivity : ComponentActivity() {
 
                         Button(
                             onClick = { csvPickerLauncherBarrierList.launch("text/comma-separated-values") },
-                            modifier = Modifier.size(300.dp, 60.dp),
+                            modifier = Modifier.size(333.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Replace Barrier List from CSV")
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { csvPickerLauncherLnLMotion.launch("text/comma-separated-values") },
-                            modifier = Modifier.size(300.dp, 60.dp),
+                            modifier = Modifier.size(333.dp, 60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("Replace Motion Data from CSV")
+                            Text("Replace LnL Motion Data from CSV")
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))

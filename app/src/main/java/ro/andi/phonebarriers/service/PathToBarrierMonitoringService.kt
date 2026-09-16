@@ -325,6 +325,8 @@ class PathToBarrierMonitoringService : Service() {
                 stopLocationUpdates()
                 stopAccelerometer()
 
+                updateWidget(null)
+
                 delay(sleepMillis.milliseconds)
             }
         }
@@ -388,6 +390,8 @@ class PathToBarrierMonitoringService : Service() {
 
                 stopLocationUpdates()
                 stopAccelerometer()
+
+                updateWidget(null)
 
                 delay(sleepMillis.milliseconds)
             }
@@ -501,7 +505,7 @@ class PathToBarrierMonitoringService : Service() {
 
         val db = AppDatabase.getDatabase(this)
         val medoids = db.medoidDao().getMedoidsForBarrier(barrier.id)
-        if (medoids.isEmpty()) {
+        if (medoids.size<3) { // the first two entries are for relative points MINs & MAXs needed for normalization
             Log.d(TAG, "No medoids found for barrier: ${barrier.shortName} [${barrier.id}]")
             return
         }
