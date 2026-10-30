@@ -386,7 +386,7 @@ class PathToBarrierMonitoringService : Service() {
         stopLocationUpdates()
         stopAccelerometer()
 
-        startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+        startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
         startAccelerometer()
 
         // remove unallocated points older than 1 minute
@@ -413,14 +413,11 @@ class PathToBarrierMonitoringService : Service() {
 
                     stopLocationUpdates()
                     stopAccelerometer()
-                    registerSignificantMotion()
 
-                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
-                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
-                    }
-                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    suspendUntilMotionOrTimeout()
+
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
-                    break
+                    continue
                 }
                 else if (maxSpeedLastPoints < SLOW_BIKING_SPEED) {
                     Log.d(TAG, "[DEEP-SLEEP] In light range but slow moving ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
@@ -447,14 +444,11 @@ class PathToBarrierMonitoringService : Service() {
 
                     stopLocationUpdates()
                     stopAccelerometer()
-                    registerSignificantMotion()
 
-                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
-                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
-                    }
-                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    suspendUntilMotionOrTimeout()
+
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
-                    break
+                    continue
                 }
                 // slow moving
                 else if (maxSpeedLastPoints < SLOW_BIKING_SPEED) {
@@ -468,7 +462,7 @@ class PathToBarrierMonitoringService : Service() {
 
                     delay(sleepMillis.milliseconds)
 
-                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
                     startAccelerometer()
                 }
                 else if (maxSpeedLastPoints < SLOW_CAR_SPEED) { // moving
@@ -504,14 +498,11 @@ class PathToBarrierMonitoringService : Service() {
 
                     stopLocationUpdates()
                     stopAccelerometer()
-                    registerSignificantMotion()
 
-                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
-                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
-                    }
-                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    suspendUntilMotionOrTimeout()
+
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
-                    break
+                    continue
                 }
                 else { // car moving
                     val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLastPoints, true)
@@ -524,7 +515,7 @@ class PathToBarrierMonitoringService : Service() {
 
                     delay(sleepMillis.milliseconds)
 
-                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
                     startAccelerometer()
                 }
 
@@ -762,6 +753,17 @@ class PathToBarrierMonitoringService : Service() {
     ) {
         companion object {
             val empty = MatchResultJson(false, -1.0, -1, -1L, emptyList())
+        }
+    }
+
+    private suspend fun suspendUntilMotionOrTimeout() {
+        try {
+            registerSignificantMotion()
+            withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
+                suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
+            }
+        } finally {
+            sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
         }
     }
 
