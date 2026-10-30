@@ -54,6 +54,13 @@ class PathToBarrierMonitoringService : Service() {
         const val ACTION_WAKE_LIGHT = "ACTION_WAKE_LIGHT"
         const val ACTION_WAKE_DEEP = "ACTION_WAKE_DEEP"
 
+        const val ACTIVE_KEEP_POINTS = 67
+        const val ACTIVE_AUTO_TRIGGER_POINTS = 30
+
+        const val ACTIVE_THRESHOLD_RANGE    = 1000.0f // 1 km
+        const val LIGHT_THRESHOLD_RANGE     = 2000.0f // 2 km
+        const val DEEP_THRESHOLD_RANGE      = 4000.0f // 4 km
+
         const val LOW_SLOW_SPEED = 0.1f //  m/s
         const val SLOW_WALKING_SPEED = 0.8f //  m/s
         const val SLOW_BIKING_SPEED = 2.0f  //  m/s
@@ -195,7 +202,7 @@ class PathToBarrierMonitoringService : Service() {
         val maxSpeedLast10s = points.maxOfOrNull { it.speed } ?: 0f
         
         val inRange = cachedBarriersWithAutoTriggerOpted.any { barrier ->
-            isInRangeToReach(barrier, maxSpeedLast10s, 2f, 30f)
+            isInRangeToReach(barrier, maxSpeedLast10s, 4f, 30f)
         }
 
         if (inRange) {
@@ -210,22 +217,22 @@ class PathToBarrierMonitoringService : Service() {
         startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
         startAccelerometer()
 
-        val last30Points = mutableListOf<MotionPoint>()
+        val lastPoints = mutableListOf<MotionPoint>()
         
         while (currentState == State.ACTIVE) {
             yield()
 
-            // collect data: first 30 points or another point
-            if (last30Points.size < 30) {
-                val points = collectData(30, 1000L)
-                last30Points.addAll(points)
+            // collect data: first ACTIVE_AUTO_TRIGGER_POINTS (30) points or another point
+            if (lastPoints.size < ACTIVE_AUTO_TRIGGER_POINTS) {
+                val points = collectData(ACTIVE_AUTO_TRIGGER_POINTS, 1000L)
+                lastPoints.addAll(points)
             }
             else {
                 val point = saveAndReturnPoint()
-                last30Points.add(point)
+                lastPoints.add(point)
             }
-            // keep only 30 points
-            if (last30Points.size > 30) last30Points.removeAt(0)
+            // keep only ACTIVE_KEEP_POINTS (67) points
+            if (lastPoints.size > ACTIVE_KEEP_POINTS) lastPoints.removeAt(0)
 
             // detect closest barrier and update widget
             var closestBarrier: Barrier? = null
@@ -244,33 +251,45 @@ class PathToBarrierMonitoringService : Service() {
                 Log.d(TAG, "[ACTIVE] detected as closest barrier: ${closestBarrier.shortName} [${closestBarrier.id}]")
                 updateWidget(closestBarrier)
                 // if auto trigger is enabled then try to match the path collected with the barrier's medoids
-                if (closestBarrier.isEnabledAutoTrigger && last30Points.size >= 30) {
+                if (closestBarrier.isEnabledAutoTrigger && lastPoints.size >= ACTIVE_AUTO_TRIGGER_POINTS) {
                     Log.d(TAG, "[ACTIVE] checking if the case to AUTO-TRIGGER for barrier: ${closestBarrier.shortName} [${closestBarrier.id}]")
-                    checkAutoTrigger(closestBarrier, last30Points)
+                    checkAutoTrigger(closestBarrier, lastPoints.takeLast(ACTIVE_AUTO_TRIGGER_POINTS))
                 }
             } else {
                 updateWidget(null)
             }
 
-            // detect max speed of the last 25 seconds
-            val maxSpeedLast25s = last30Points.takeLast(25).maxOfOrNull { it.speed } ?: 0f
+            // detect max speed of the last seconds/points
+            val maxSpeedLastPoints = lastPoints.takeLast(ACTIVE_KEEP_POINTS).maxOfOrNull { it.speed } ?: 0f
 
-            // detect if still in active range by max speed of the last 5 seconds
-            val stillInRange = cachedBarriersWithAutoTriggerOpted.any {
-                isInRangeToReach(it, maxSpeedLast25s, 2f, 30f)
+            // detect if still in active range by max speed of the last seconds/points
+            val stillInActiveRange = cachedBarriersWithAutoTriggerOpted.any {
+                isInRangeToReach(it, maxSpeedLastPoints, 4f, 30f)
             }
-            if (!stillInRange) {
-                Log.d(TAG, "[ACTIVE] In light range, transitioning to [LIGHT-SLEEP] (maxSpeedLast25Seconds: $maxSpeedLast25s m/s)")
-                transitionTo(State.LIGHT_SLEEP)
-                break
-            }
-            else if (maxSpeedLast25s < SLOW_WALKING_SPEED) {
-                Log.d(TAG, "[ACTIVE] In active range but slow moving, transitioning to [LIGHT-SLEEP] (maxSpeedLast25Seconds: $maxSpeedLast25s m/s)")
-                transitionTo(State.LIGHT_SLEEP)
-                break
+
+            if (stillInActiveRange) {
+
+                if (maxSpeedLastPoints < SLOW_WALKING_SPEED) {
+                    Log.d(TAG, "[ACTIVE] In active range but slow moving, transitioning to [LIGHT-SLEEP] (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+                    transitionTo(State.LIGHT_SLEEP)
+                    break
+                }
+                else {
+                    Log.d(TAG, "[ACTIVE] Still in active range, continue looping ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+                }
             }
             else {
-                Log.d(TAG, "[ACTIVE] Still in active range continue looping ... (maxSpeedLast25Seconds: $maxSpeedLast25s m/s)")
+                val isInCloseRange = cachedBarriersWithAutoTriggerOpted.any {
+                    isInRange(it, ACTIVE_THRESHOLD_RANGE)
+                }
+                if (maxSpeedLastPoints > SLOW_CAR_SPEED && isInCloseRange) {
+                    Log.d(TAG, "[ACTIVE] In close range & above car-speed, continue looping ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+                }
+                else {
+                    Log.d(TAG, "[ACTIVE] In light range, transitioning to [LIGHT-SLEEP] (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+                    transitionTo(State.LIGHT_SLEEP)
+                    break
+                }
             }
 
             delay(1000L.milliseconds)
@@ -282,53 +301,83 @@ class PathToBarrierMonitoringService : Service() {
         stopLocationUpdates()
         stopAccelerometer()
 
+        startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+        startAccelerometer()
+
         // remove unallocated points older than 1 minute
         AppDatabase.getDatabase(this).motionDao().cleanOldUnusedData(System.currentTimeMillis() - 60000)
         
         while (currentState == State.LIGHT_SLEEP) {
             yield()
-            startLocationUpdates(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 5000L)
-            startAccelerometer()
 
             val points = collectData(7, 1000L)
             val maxSpeedLast7s = points.maxOfOrNull { it.speed } ?: 0f
             
-            val inRangeActive = cachedBarriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast7s, 2f, 30f) }
+            val inRangeActive = cachedBarriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast7s, 4f, 30f) }
 
             if (inRangeActive) {
                 if (maxSpeedLast7s < SLOW_WALKING_SPEED) {
+                    Log.d(TAG, "[LIGHT-SLEEP] In active range but very slow moving, transitioning to [DEEP_SLEEP] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
+                    transitionTo(State.DEEP_SLEEP)
+                    break
+                }
+                else if (maxSpeedLast7s < SLOW_BIKING_SPEED) {
                     Log.d(TAG, "[LIGHT-SLEEP] In active range but slow moving ... (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
+                    delay(5000L.milliseconds)
+                    continue
                 }
                 else {
                     Log.d(TAG, "[LIGHT-SLEEP] In active range and moving, transitioning to [ACTIVE] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
                     transitionTo(State.ACTIVE)
                     break
                 }
             }
 
-            val inRangeLight = cachedBarriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast7s, 4f, 30f) }
+            val inRangeLight = cachedBarriersWithAutoTriggerOpted.any { isInRangeToReach(it, maxSpeedLast7s, 8f, 30f) }
 
-            if (!inRangeLight) {
-                Log.d(TAG, "[LIGHT-SLEEP] In deep range, transitioning to [DEEP-SLEEP] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
-                transitionTo(State.DEEP_SLEEP)
-                break
-            }
-            else if (maxSpeedLast7s < SLOW_BIKING_SPEED) {
-                Log.d(TAG, "[LIGHT-SLEEP] In light range but slow moving, transitioning to [DEEP-SLEEP] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
-                transitionTo(State.DEEP_SLEEP)
-                break
+            if (inRangeLight) {
+                if (maxSpeedLast7s < SLOW_BIKING_SPEED) {
+                    Log.d(TAG, "[LIGHT-SLEEP] In light range but slow moving, transitioning to [DEEP-SLEEP] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
+                    transitionTo(State.DEEP_SLEEP)
+                    break
+                }
+                else {
+                    val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLast7s, false)
+                    Log.d(TAG, "[LIGHT-SLEEP] In light range and moving, sleeping for ${sleepMillis}ms (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+
+                    stopLocationUpdates()
+                    stopAccelerometer()
+
+                    updateWidget(null)
+
+                    delay(sleepMillis.milliseconds)
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
+                }
             }
             else {
-                val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLast7s, false)
-                Log.d(TAG, "[LIGHT-SLEEP] In light range and moving, sleeping for ${sleepMillis}ms (maxSpeedLast7s: $maxSpeedLast7s m/s)")
+                val isInCloseRange = cachedBarriersWithAutoTriggerOpted.any {
+                    isInRange(it, LIGHT_THRESHOLD_RANGE)
+                }
+                if (maxSpeedLast7s > SLOW_CAR_SPEED && isInCloseRange) {
+                    Log.d(TAG, "[LIGHT-SLEEP] In close range & above car-speed, continue looping ... (maxSpeedLastPoints: $maxSpeedLast7s m/s)")
 
-                stopLocationUpdates()
-                stopAccelerometer()
+                    delay(5000L.milliseconds)
+                    continue
+                }
+                else {
+                    Log.d(TAG, "[LIGHT-SLEEP] In deep range, transitioning to [DEEP-SLEEP] (maxSpeedLast7s: $maxSpeedLast7s m/s)")
 
-                updateWidget(null)
-
-                delay(sleepMillis.milliseconds)
+                    transitionTo(State.DEEP_SLEEP)
+                    break
+                }
             }
+
         }
     }
 
@@ -336,6 +385,9 @@ class PathToBarrierMonitoringService : Service() {
         Log.d(TAG, "[DEEP-SLEEP] Deep sleeping...")
         stopLocationUpdates()
         stopAccelerometer()
+
+        startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+        startAccelerometer()
 
         // remove unallocated points older than 1 minute
         val motionDao = AppDatabase.getDatabase(this).motionDao()
@@ -347,54 +399,138 @@ class PathToBarrierMonitoringService : Service() {
         
         while (currentState == State.DEEP_SLEEP) {
             yield()
-            startLocationUpdates(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10000L)
-            startAccelerometer()
 
             val points = collectData(5, 1000L)
-            val maxSpeedLast5s = points.maxOfOrNull { it.speed } ?: 0f
+            val maxSpeedLastPoints = points.maxOfOrNull { it.speed } ?: 0f
             
             val inRangeLight = cachedBarriersWithAutoTriggerOpted.any {
-                isInRangeToReach(it, maxSpeedLast5s, 4f, 30f)
+                isInRangeToReach(it, maxSpeedLastPoints, 8f, 30f)
             }
 
             if (inRangeLight) {
-                if (maxSpeedLast5s < SLOW_BIKING_SPEED) {
-                    Log.d(TAG, "[DEEP-SLEEP] In light range but slow moving ... (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                if (maxSpeedLastPoints < LOW_SLOW_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] In light range but very slow moving, waiting for significant motion or guard timeout")
+
+                    stopLocationUpdates()
+                    stopAccelerometer()
+                    registerSignificantMotion()
+
+                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
+                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
+                    }
+                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+                    break
+                }
+                else if (maxSpeedLastPoints < SLOW_BIKING_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] In light range but slow moving ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
+                    delay(11000L.milliseconds)
+                    continue
                 }
                 else {
-                    Log.d(TAG, "[DEEP-SLEEP] In light range and moving, transitioning to [LIGHT_SLEEP] (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+                    Log.d(TAG, "[DEEP-SLEEP] In light range and moving, transitioning to [LIGHT_SLEEP] (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
                     transitionTo(State.LIGHT_SLEEP)
                     break
                 }
             }
 
             val inRangeDeep = cachedBarriersWithAutoTriggerOpted.any {
-                isInRangeToReach(it, maxSpeedLast5s, 8f, 30f)
+                isInRangeToReach(it, maxSpeedLastPoints, 16f, 30f)
             }
 
-            if (!inRangeDeep || (maxSpeedLast5s < SLOW_CAR_SPEED)) {
-                Log.d(TAG, "[DEEP-SLEEP] Outside of deep range or slow moving, waiting for significant motion or guard timeout")
-                stopLocationUpdates()
-                stopAccelerometer()
-                registerSignificantMotion()
+            if (inRangeDeep) {
+                // very slow moving
+                if (maxSpeedLastPoints < LOW_SLOW_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] In deep range but very slow moving, waiting for significant motion or guard timeout")
 
-                withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
-                    suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
+                    stopLocationUpdates()
+                    stopAccelerometer()
+                    registerSignificantMotion()
+
+                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
+                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
+                    }
+                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+                    break
                 }
-                sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
-                Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+                // slow moving
+                else if (maxSpeedLastPoints < SLOW_BIKING_SPEED) {
+                    val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLastPoints, true)
+                    Log.d(TAG, "[DEEP-SLEEP] In deep range and slow moving, sleeping for ${sleepMillis}ms (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
+                    stopLocationUpdates()
+                    stopAccelerometer()
+
+                    updateWidget(null)
+
+                    delay(sleepMillis.milliseconds)
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
+                }
+                else if (maxSpeedLastPoints < SLOW_CAR_SPEED) { // moving
+                    Log.d(TAG, "[DEEP-SLEEP] In deep range but moving ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
+                    delay(11000L.milliseconds)
+                    continue
+                }
+                else { // car moving
+                    Log.d(TAG, "[DEEP-SLEEP] In deep range but moving fast ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
+                    delay(5000L.milliseconds)
+                    continue
+                }
+
             }
-            else {
-                val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLast5s, true)
-                Log.d(TAG, "[DEEP-SLEEP] In deep range, sleeping for ${sleepMillis}ms (maxSpeedLast5s: $maxSpeedLast5s m/s)")
+            else { // not in deep range
 
-                stopLocationUpdates()
-                stopAccelerometer()
+                // in close range?
+                val isInCloseRange = cachedBarriersWithAutoTriggerOpted.any {
+                    isInRange(it, DEEP_THRESHOLD_RANGE)
+                }
+                if (maxSpeedLastPoints > SLOW_CAR_SPEED && isInCloseRange) {
+                    Log.d(TAG, "[DEEP-SLEEP] In close range & above car-speed, continue looping ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
-                updateWidget(null)
+                    delay(5000L.milliseconds)
+                    continue
+                }
 
-                delay(sleepMillis.milliseconds)
+                // slow moving?
+                if (maxSpeedLastPoints < SLOW_CAR_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] Outside of deep range or slow moving, waiting for significant motion or guard timeout")
+
+                    stopLocationUpdates()
+                    stopAccelerometer()
+                    registerSignificantMotion()
+
+                    withTimeoutOrNull(GUARD_TIMEOUT.milliseconds) {
+                        suspendCancellableCoroutine<Unit> { /* Stay suspended until cancelled, triggered, or timeout */ }
+                    }
+                    sensorManager.cancelTriggerSensor(significantMotionListener, sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION))
+                    Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+                    break
+                }
+                else { // car moving
+                    val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLastPoints, true)
+                    Log.d(TAG, "[DEEP-SLEEP] Outside of deep range and moving fast, sleeping for ${sleepMillis}ms (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
+
+                    stopLocationUpdates()
+                    stopAccelerometer()
+
+                    updateWidget(null)
+
+                    delay(sleepMillis.milliseconds)
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 5000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
+                }
+
+
             }
+
         }
     }
 
@@ -440,6 +576,11 @@ class PathToBarrierMonitoringService : Service() {
         val distance = getDistanceTo(barrier)
         val reachableDistance = speed * speedMultiplier * timeSeconds
         return distance <= (barrier.radius + reachableDistance)
+    }
+
+    private fun isInRange(barrier: Barrier, range: Float): Boolean {
+        val distance = getDistanceTo(barrier)
+        return distance <= range
     }
 
     private fun getDistanceTo(barrier: Barrier): Float {

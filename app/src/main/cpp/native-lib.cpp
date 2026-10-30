@@ -942,7 +942,7 @@ Java_ro_andi_phonebarriers_NativeLib_matchPathWithBarrierMedoids(JNIEnv *env, jo
     // 1. Convert input points
     std::vector<MotionPoint> nativeLast30 = convertJavaArrayToNativePoints(env, last30_points);
     if (nativeLast30.size() < 2) {
-        return env->NewStringUTF("{\"hasMatch\":false, \"bestDistance\":-1.0, \"bestMedoidClusterId\":-1, \"distanceToEachMedoid\":[]}");
+        return env->NewStringUTF(R"({"hasMatch":false, "bestDistance":-1.0, "bestMedoidClusterId":-1, "distanceToEachMedoid":[]})");
     }
 
     // Sort by timestamp just in case
