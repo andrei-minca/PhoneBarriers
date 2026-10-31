@@ -54,7 +54,7 @@ class PathToBarrierMonitoringService : Service() {
         const val ACTION_WAKE_LIGHT = "ACTION_WAKE_LIGHT"
         const val ACTION_WAKE_DEEP = "ACTION_WAKE_DEEP"
 
-        const val ACTIVE_KEEP_POINTS = 67
+        const val ACTIVE_KEEP_POINTS = 123
         const val ACTIVE_AUTO_TRIGGER_POINTS = 30
 
         const val ACTIVE_THRESHOLD_RANGE    = 1000.0f // 1 km
@@ -408,6 +408,7 @@ class PathToBarrierMonitoringService : Service() {
             }
 
             if (inRangeLight) {
+                // very slow moving
                 if (maxSpeedLastPoints < LOW_SLOW_SPEED) {
                     Log.d(TAG, "[DEEP-SLEEP] In light range but very slow moving, waiting for significant motion or guard timeout")
 
@@ -417,14 +418,19 @@ class PathToBarrierMonitoringService : Service() {
                     suspendUntilMotionOrTimeout()
 
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
                     continue
                 }
+                // slow moving
                 else if (maxSpeedLastPoints < SLOW_BIKING_SPEED) {
                     Log.d(TAG, "[DEEP-SLEEP] In light range but slow moving ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
                     delay(11000L.milliseconds)
                     continue
                 }
+                // moving
                 else {
                     Log.d(TAG, "[DEEP-SLEEP] In light range and moving, transitioning to [LIGHT_SLEEP] (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
@@ -448,6 +454,9 @@ class PathToBarrierMonitoringService : Service() {
                     suspendUntilMotionOrTimeout()
 
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
                     continue
                 }
                 // slow moving
@@ -465,13 +474,15 @@ class PathToBarrierMonitoringService : Service() {
                     startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
                     startAccelerometer()
                 }
-                else if (maxSpeedLastPoints < SLOW_CAR_SPEED) { // moving
+                // moving
+                else if (maxSpeedLastPoints < SLOW_CAR_SPEED) {
                     Log.d(TAG, "[DEEP-SLEEP] In deep range but moving ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
                     delay(11000L.milliseconds)
                     continue
                 }
-                else { // car moving
+                // car moving
+                else {
                     Log.d(TAG, "[DEEP-SLEEP] In deep range but moving fast ... (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
                     delay(5000L.milliseconds)
@@ -492,9 +503,9 @@ class PathToBarrierMonitoringService : Service() {
                     continue
                 }
 
-                // slow moving?
-                if (maxSpeedLastPoints < SLOW_CAR_SPEED) {
-                    Log.d(TAG, "[DEEP-SLEEP] Outside of deep range or slow moving, waiting for significant motion or guard timeout")
+                // very slow moving?
+                if (maxSpeedLastPoints < LOW_SLOW_SPEED) {
+                    Log.d(TAG, "[DEEP-SLEEP] Outside of deep range and slow moving, waiting for significant motion or guard timeout")
 
                     stopLocationUpdates()
                     stopAccelerometer()
@@ -502,9 +513,13 @@ class PathToBarrierMonitoringService : Service() {
                     suspendUntilMotionOrTimeout()
 
                     Log.d(TAG, "[DEEP-SLEEP] Resuming from suspension (motion or timeout)")
+
+                    startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
+                    startAccelerometer()
                     continue
                 }
-                else { // car moving
+                // moving
+                else {
                     val sleepMillis = calculateSleepTime(cachedBarriersWithAutoTriggerOpted, maxSpeedLastPoints, true)
                     Log.d(TAG, "[DEEP-SLEEP] Outside of deep range and moving fast, sleeping for ${sleepMillis}ms (maxSpeedLastPoints: $maxSpeedLastPoints m/s)")
 
@@ -517,6 +532,7 @@ class PathToBarrierMonitoringService : Service() {
 
                     startLocationUpdates(Priority.PRIORITY_HIGH_ACCURACY, 11000L) //PRIORITY_BALANCED_POWER_ACCURACY
                     startAccelerometer()
+                    continue
                 }
 
 
