@@ -705,31 +705,31 @@ class PathToBarrierMonitoringService : Service() {
             // Current unmatch
             showMatchNotification(barrier, matchResult, matchResultJson, "Current UNMATCH", CURRENT_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
 
-            // Min unmatch
+            // Best/Min unmatch
             val minUnmatchDist = appPreferences.getMinUnmatchDistance(barrier.id)
             if (matchResult.bestDistance < minUnmatchDist) {
                 appPreferences.setMinUnmatchDistance(barrier.id, matchResult.bestDistance)
                 appPreferences.setMinUnmatchJson(barrier.id, matchResultJson)
-                showMatchNotification(barrier, matchResult, matchResultJson, "MIN UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                showMatchNotification(barrier, matchResult, matchResultJson, "Best UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
             } else {
                 val minJson = appPreferences.getMinUnmatchJson(barrier.id)
                 if (minJson != null) {
                     val minResult = gson.fromJson(minJson, MatchResultJson::class.java)
-                    showMatchNotification(barrier, minResult, minJson, "MIN UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                    showMatchNotification(barrier, minResult, minJson, "Best UNMATCH", MIN_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
                 }
             }
 
-            // Max unmatch
+            // Worst/Max unmatch
             val maxUnmatchDist = appPreferences.getMaxUnmatchDistance(barrier.id)
             if (matchResult.bestDistance > maxUnmatchDist) {
                 appPreferences.setMaxUnmatchDistance(barrier.id, matchResult.bestDistance)
                 appPreferences.setMaxUnmatchJson(barrier.id, matchResultJson)
-                showMatchNotification(barrier, matchResult, matchResultJson, "MAX UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                showMatchNotification(barrier, matchResult, matchResultJson, "Worst UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
             } else {
                 val maxJson = appPreferences.getMaxUnmatchJson(barrier.id)
                 if (maxJson != null) {
                     val maxResult = gson.fromJson(maxJson, MatchResultJson::class.java)
-                    showMatchNotification(barrier, maxResult, maxJson, "MAX UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
+                    showMatchNotification(barrier, maxResult, maxJson, "Worst UNMATCH", MAX_UNMATCH_NOTIFICATION_BASE_ID + barrier.id)
                 }
             }
         }
@@ -741,12 +741,12 @@ class PathToBarrierMonitoringService : Service() {
         val builder = NotificationCompat.Builder(this, MATCH_CHANNEL_ID)
             .setSmallIcon(R.drawable.sv_fontawesome_road_barrier_s_f)
             .setContentTitle(title)
-            .setContentText("Best distance: ${String.format(Locale.US, "%.2f", result.bestDistance)}")
+            .setContentText("Distance: ${String.format(Locale.US, "%.2f", result.bestDistance)}")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
                 "Barrier ID: ${barrier.id}\n" +
-                "Best Medoid Cluster ID: ${result.bestMedoidClusterId}\n" +
-                "Best Medoid Session ID: ${result.bestMedoidSessionId}\n" +
-                "Best Distance: ${result.bestDistance}\n" +
+                "Medoid Cluster ID: ${result.bestMedoidClusterId}\n" +
+                "Medoid Session ID: ${result.bestMedoidSessionId}\n" +
+                "Distance: ${result.bestDistance}\n" +
                 "Distances: ${result.distanceToEachMedoid}\n" +
                 "Full Result: $rawJson"
             ))
@@ -756,7 +756,7 @@ class PathToBarrierMonitoringService : Service() {
         try {
             NotificationManagerCompat.from(this).notify(notificationId, builder.build())
         } catch (e: SecurityException) {
-            Log.e(TAG, "Notification permission missing")
+            Log.e(TAG, "Notification permission missing! "+e.message)
         }
     }
 
